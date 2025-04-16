@@ -1,0 +1,33 @@
+require("dotenv").config();
+const express = require("express");
+const app = express();
+const cookieParser = require('cookie-parser');
+const csrf = require('csurf');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cors = require('cors');
+const { body, validationResult } = require('express-validator');
+const userRoutes = require('./routes/userRoutes.js');
+
+const PORT = 3000 || process.env.PORT;
+// Basic Middleware
+app.use(express.json());
+app.use(cookieParser());
+app.use(helmet());
+
+// Rate limiting
+app.use(rateLimit({windowMs :15 * 60 * 1000, //15 min
+    max:100,
+    message : 'Too many requests, please try again later'
+}));
+
+// CSRF protection
+// app.use(csrf({cookie:true}));
+
+// Routing
+app.use('/users', userRoutes);
+
+
+app.listen(PORT,()=>{
+    console.log(`Running on PORT: ${PORT}`)
+})
