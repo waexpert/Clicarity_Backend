@@ -8,6 +8,7 @@ const updatePassword = "UPDATE users SET password = $1 WHERE id = $2";
 
 
 
+
 module.exports ={
     getUserById,
     getUserByEmail,

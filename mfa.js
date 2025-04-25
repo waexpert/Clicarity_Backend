@@ -2,18 +2,18 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 
 // // Generate a secret key for the user
-// const secret = speakeasy.generateSecret({ name: 'MyApp (user@example.com)' });
+const secret = speakeasy.generateSecret({ name: 'MyApp (user@example.com)' });
 
-// console.log('Secret base32:', secret.base32); // store this securely per user
+console.log('Secret base32:', secret.base32); // store this securely per user
 
-// // Generate QR code for authenticator apps
-// qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
-//   if (err) {
-//     console.error('Error generating QR code', err);
-//   } else {
-//     console.log('Scan this QR code in your authenticator app:', data_url);
-//   }
-// });
+// Generate QR code for authenticator apps
+qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+  if (err) {
+    console.error('Error generating QR code', err);
+  } else {
+    console.log('Scan this QR code in your authenticator app:', data_url);
+  }
+});
 
 
 

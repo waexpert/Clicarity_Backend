@@ -48,11 +48,7 @@ exports.sendJWTToken = (user, statusCode, res) => {
 
   res.status(statusCode).json({
     success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.first_name,
-    },
+    user: user,
   });
 };
 

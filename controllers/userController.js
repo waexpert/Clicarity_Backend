@@ -48,34 +48,37 @@ exports.registerUser = async (req, res) => {
 };
 
 exports.loginUser = async (req, res, next) => {
-    try {
-      const { email, password } = req.body;
-      const result = await pool.query(queries.getUserByEmail, [email]);
-      const user = result.rows[0];
-  
-      if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-  
-      const isPasswordMatched = await bcrypt.compare(password, user.password);
-      if (!isPasswordMatched) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-  
-      sendJWTToken(user, 200, res);
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+  try {
+    const { email, password } = req.body;
+    console.log("Login attempt:", email);
+
+    const result = await pool.query(queries.getUserByEmail, [email]);
+    console.log("Query result:", result.rows);
+
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid email or password" });
     }
-  };
+
+    const isPasswordMatched = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatched) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    sendJWTToken(user, 200, res);
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
   
 // logout 
 exports.logout = async(req,res,next)=>{
-    res.cookie('token',null,{
-        expires :new Date(Date.now()),
-        httpOnly:true
-    });
-    res.status(200).json({success : true, message:'Logout successful'})
+  res.clearCookie('access_token');
+  res.clearCookie('refresh_token');
+  res.json({ success: true });
 }
 
 // forget Password
@@ -91,7 +94,7 @@ exports.logout = async(req,res,next)=>{
 
 // getUser Details
 exports.getUserDetails = async(req,res,next)=>{
-    const result = await pool.query(queries.getUserById, [req.user.id]);
+    const result = await pool.query(queries.getUserById, [req.body.user_id]);
     const user = result.rows[0];
     res.status(200).json({ success: true, user });
     

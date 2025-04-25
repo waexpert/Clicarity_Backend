@@ -8,6 +8,8 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const { body, validationResult } = require('express-validator');
 const userRoutes = require('./routes/userRoutes.js');
+const userPermissionRoutes = require('./routes/secureRoutes.js')
+const mfaRoutes = require('./routes/mfaRoutes.js')
 
 const PORT = 3000 || process.env.PORT;
 // Basic Middleware
@@ -15,6 +17,13 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(helmet());
 
+// CORS configuration
+const corsOptions = {
+    origin: 'http://localhost:3001',
+    credentials: true, // if you're using cookies or authentication headers
+  };
+  app.use(cors(corsOptions));
+  
 // Rate limiting
 app.use(rateLimit({windowMs :15 * 60 * 1000, //15 min
     max:100,
@@ -26,6 +35,8 @@ app.use(rateLimit({windowMs :15 * 60 * 1000, //15 min
 
 // Routing
 app.use('/users', userRoutes);
+app.use('/secure', userPermissionRoutes);
+app.use('/mfa',mfaRoutes);
 
 
 app.listen(PORT,()=>{
