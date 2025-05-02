@@ -10,6 +10,7 @@ const { body, validationResult } = require('express-validator');
 const userRoutes = require('./routes/userRoutes.js');
 const userPermissionRoutes = require('./routes/secureRoutes.js')
 const mfaRoutes = require('./routes/mfaRoutes.js')
+const dataRoutes = require('./routes/dataRoutes.js')
 
 const PORT = 3000 || process.env.PORT;
 // Basic Middleware
@@ -35,6 +36,7 @@ app.use(rateLimit({windowMs :15 * 60 * 1000, //15 min
 
 // Routing
 app.use('/users', userRoutes);
+app.use('/data', dataRoutes);
 app.use('/secure', userPermissionRoutes);
 app.use('/mfa',mfaRoutes);
 

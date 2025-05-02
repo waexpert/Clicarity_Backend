@@ -7,6 +7,31 @@ const addUser = "INSERT INTO users (first_name,last_name,email,password,phone_nu
 const updatePassword = "UPDATE users SET password = $1 WHERE id = $2";
 
 
+function createUserTable() {
+    return `
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        email VARCHAR(100),
+        password TEXT,
+        phone_number VARCHAR(20),
+        country VARCHAR(100),
+        currency VARCHAR(3),
+        is_verified BOOLEAN,
+        created_at TIMESTAMP,
+        updated_at TIMESTAMP,
+        mfa BOOLEAN,
+        mfa_secret TEXT,
+        schema_name TEXT,
+        role TEXT,
+        owner_first_name TEXT,
+        owner_id TEXT,
+        products_activated TEXT[]
+    );
+    `;
+}
+
 
 
 module.exports ={
@@ -16,6 +41,7 @@ module.exports ={
     checkPhoneExists,
     checkUser,
     addUser,
-    updatePassword
+    updatePassword,
+    createUserTable
 
 }
