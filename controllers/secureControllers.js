@@ -275,32 +275,54 @@ exports.createTeamMember = async (req, res) => {
 };
 
 
-async function createViewsForTeamMember(schemaName, email) {
-  const postgresUsername = email.replace(/[^a-zA-Z0-9_]/g, '_');
-
-  const activatedProducts = await pool.query(`
-    SELECT product_name FROM ${schemaName}.products_activated WHERE is_active = true;
-  `);
-
-  for (const { product_name } of activatedProducts.rows) {
-    const viewName = `${product_name}_view_${postgresUsername}`;
-    const masterTable = `${schemaName}.${product_name}`;
-
-    // Check if the master table exists
-    const tableExists = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = $1 AND table_name = $2
-      );
-    `, [schemaName, product_name]);
-
-    if (tableExists.rows[0].exists) {
-      await pool.query(`
-        CREATE OR REPLACE VIEW ${schemaName}.${viewName} AS
-        SELECT * FROM ${masterTable} WHERE assignee_email = $1;
-      `, [email]);
-
-      await pool.query(`GRANT SELECT ON ${schemaName}.${viewName} TO ${postgresUsername};`);
-    }
+exports.createView = async (req, res) => {
+  const { viewName, schemaName, sourceTable, columns, whereCondition, username } = req.body;
+  
+  // Validation
+  if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+    return res.status(400).json({ error: 'Invalid schema name' });
   }
-}
+  
+  if (!viewName || /[^a-zA-Z0-9_]/.test(viewName)) {
+    return res.status(400).json({ error: 'Invalid view name' });
+  }
+  
+  if (!username || /[^a-zA-Z0-9_]/.test(username)) {
+    return res.status(400).json({ error: 'Invalid username' });
+  }
+  
+  // Generate the CREATE VIEW query
+  const columnsList = Array.isArray(columns) ? columns.join(', ') : '*';
+  const whereClause = whereCondition ? `WHERE ${whereCondition}` : '';
+  
+  // Create queries
+  const createViewQuery = `
+    CREATE OR REPLACE VIEW ${schemaName}.${viewName} AS
+    SELECT ${columnsList}
+    FROM ${schemaName}.${sourceTable}
+    ${whereClause};
+  `;
+  
+  // Set permissions
+  const revokePublicQuery = `REVOKE ALL ON ${schemaName}.${viewName} FROM PUBLIC;`;
+  const grantUserQuery = `GRANT SELECT ON ${schemaName}.${viewName} TO ${username};`;
+  
+  try {
+    // Execute queries in a transaction
+    await pool.query('BEGIN');
+    
+    await pool.query(createViewQuery);
+    await pool.query(revokePublicQuery);
+    await pool.query(grantUserQuery);
+    
+    await pool.query('COMMIT');
+    
+    res.status(200).json({ 
+      message: `View ${viewName} created successfully in schema ${schemaName} with access granted to user ${username}` 
+    });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    console.error('Error Creating View:', err);
+    res.status(500).json({ error: 'Failed to create View' });
+  }
+};
