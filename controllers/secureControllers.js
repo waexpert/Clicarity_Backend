@@ -148,54 +148,9 @@ res.status(500).json({error:'Failed to retrive Roles'})
  }
 }
 
-// exports.createTeamMember = async(req,res) =>{
-//   const {schemaName,userData,owner} = req.body;
-//   const {first_name,last_name,email,password,phone_number,role} = userData; 
-
-//   const teamMemberUserValues = [
-//     first_name,
-//     last_name,
-//     email,
-//     password,
-//     phone_number,
-//     owner.country,
-//     owner.currency,
-//     true,
-//     owner.schemaName,
-//     role,
-//     owner.first_name,
-//     owner.id
-//   ];
-
-//   const teamMemberValues = [
-//     first_name,
-//     last_name,
-//     email,
-//     password,
-//     role,
-//     phone_number,
-//     owner.id,
-//     owner.first_name
-//   ];
-  
-
-//   try{
-//   // creating user in the user table
-//   const result = await pool.query(queries.createTeamMemberUser(schemaName),teamMemberUserValues)
-//   // creating user in team Member table
-//   await pool.query(queries.createTeamMember,teamMemberValues)
-//   res.status(201).json({message:`team Member created sucessfully`})
-//   }catch(e){
-//     console.error('Error creating new team Member')
-//     res.status(500).json({error:'Failed to create new team Member'})
-//   }
-// }
-
-exports.createTeamMember = async (req, res) => {
-  const { schemaName, userData, owner } = req.body;
-  const { first_name, last_name, email, password, phone_number, role } = userData;
-
-  const postgresUsername = email.replace(/[^a-zA-Z0-9_]/g, '_');
+exports.createTeamMember = async(req,res) =>{
+  const {schemaName,userData,owner} = req.body;
+  const {first_name,last_name,email,password,phone_number,role} = userData; 
 
   const teamMemberUserValues = [
     first_name,
@@ -222,57 +177,26 @@ exports.createTeamMember = async (req, res) => {
     owner.id,
     owner.first_name
   ];
+  
 
-  const productTables = ['product1', 'product2', 'product3', 'product4', 'product5'];
-
-  try {
-    // Insert into users table
-    await pool.query(queries.createTeamMemberUser(schemaName), teamMemberUserValues);
-
-    // Check if the team Member table exist and create if not exist
-    await pool.query(queries.createTeamMemberTable(schemaName))
-    // Create teamMember table if not exists and insert
-    await pool.query(queries.createTeamMember(schemaName),teamMemberValues);
-
-    // Create PostgreSQL user
-    await pool.query(`CREATE USER ${postgresUsername} WITH PASSWORD '${password}';`);
-
-    // Create product tables for the team member
-    for (const table of productTables) {
-      const tableName = `${table}_${postgresUsername}`;
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS ${schemaName}.${tableName} (
-          id SERIAL PRIMARY KEY,
-          data TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
-
-      // Revoke access from PUBLIC
-      await pool.query(`REVOKE ALL ON ${schemaName}.${tableName} FROM PUBLIC;`);
-
-      // Revoke access from all other team members
-      const allUsers = await pool.query(`SELECT email FROM ${schemaName}.teamMember`);
-      for (const otherUser of allUsers.rows) {
-        const otherUsername = otherUser.email.replace(/[^a-zA-Z0-9_]/g, '_');
-        if (otherUsername !== postgresUsername) {
-          await pool.query(`REVOKE ALL ON ${schemaName}.${tableName} FROM ${otherUsername};`);
-        }
-      }
-
-      // Grant access only to this user
-      await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${schemaName}.${tableName} TO ${postgresUsername};`);
-    }
-
-    // Grant schema usage to this user
-    await pool.query(`GRANT USAGE ON SCHEMA ${schemaName} TO ${postgresUsername};`);
-
-    res.status(201).json({ message: `Team member created successfully` });
-  } catch (e) {
-    console.error('Error creating new team member', e);
-    res.status(500).json({ error: 'Failed to create new team member' });
+  try{
+  // creating user in the user table
+  const result = await pool.query(queries.createTeamMemberUser(schemaName),teamMemberUserValues)
+  // creating user in team Member table
+  await pool.query(queries.createTeamMember,teamMemberValues)
+  res.status(201).json({message:`team Member created sucessfully`})
+  }catch(e){
+    console.error('Error creating new team Member')
+    res.status(500).json({error:'Failed to create new team Member'})
   }
-};
+}
+
+exports.getAllTeamMembers = async(req,res)=>{
+  const {schemaName,tableName} = req.body;
+  const query = `SELECT * FROM ${schemaName}.${tableName};`;
+  const result = await pool.query(query);
+  res.status(200).json({result});
+}
 
 
 exports.createView = async (req, res) => {

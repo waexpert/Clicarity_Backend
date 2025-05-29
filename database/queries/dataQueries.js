@@ -198,10 +198,18 @@ async function ensureUniqueConstraint(pool, schemaName, tableName, columnName) {
   }
 }
 
+async function getAllData(schemaName,tableName){
+  return`
+  SELECT * FROM ${schemaName}.${tableName};
+  `;
+}
+
+
 module.exports = {
   createRecord,
   updateRecord,
   createBulkInsertQuery,
   ensureUniqueConstraint,
-  toPostgresDate
+  toPostgresDate,
+  getAllData
 };

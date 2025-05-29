@@ -1,4 +1,4 @@
-const { createSchema, createUser, createTable, createRoles, getAllRoles, createTeamMember, createView} = require("../controllers/secureControllers");
+const { createSchema, createUser, createTable, createRoles, getAllRoles, createTeamMember, createView, getAllTeamMembers} = require("../controllers/secureControllers");
 const express = require("express");
 const router = express.Router();
 
@@ -9,6 +9,7 @@ router.post("/createTable",createTable);
 router.post("/createRoles",createRoles);
 router.post("/getAllRoles",getAllRoles);
 router.post("/createTeamMember",createTeamMember);
-router.post("/createViews",createView)
+router.post("/createViews",createView);
+router.post("/getAllTeamMembers",getAllTeamMembers);
 
 module.exports = router;

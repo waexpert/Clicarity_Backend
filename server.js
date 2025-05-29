@@ -10,7 +10,9 @@ const { body, validationResult } = require('express-validator');
 const userRoutes = require('./routes/userRoutes.js');
 const userPermissionRoutes = require('./routes/secureRoutes.js')
 const mfaRoutes = require('./routes/mfaRoutes.js')
-const dataRoutes = require('./routes/dataRoutes.js')
+const dataRoutes = require('./routes/dataRoutes.js');
+const pool = require("./database/databaseConnection.js");
+pool
 
 const PORT = 3000 || process.env.PORT;
 // Basic Middleware
@@ -20,7 +22,7 @@ app.use(helmet());
 
 // CORS configuration
 const corsOptions = {
-    origin: 'http://localhost:3001',
+    origin: 'http://localhost:5173',
     credentials: true, // if you're using cookies or authentication headers
   };
   app.use(cors(corsOptions));

@@ -84,3 +84,28 @@ exports.updateRecord = async (req, res) => {
         });
     }  
 };
+
+
+exports.getAllData = async(req,res) =>{
+    const {schemaName,tableName} = req.body;
+
+    if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+        return res.status(400).json({ error: 'Invalid schema name' });
+      }
+
+      try {
+        const query = `SELECT * FROM ${schemaName}.${tableName};`;
+        const result = await pool.query(query);
+        // return result.rows;
+        res.status(200).json(result.rows);
+
+    } catch (err) {
+        console.error('Error Retriving the Records:', err);
+        res.status(500).json({ 
+            error: 'Failed to Get Record',
+            details: err.message
+        });
+    }
+    
+    
+}
