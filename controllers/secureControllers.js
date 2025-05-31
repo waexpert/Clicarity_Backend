@@ -250,3 +250,17 @@ exports.createView = async (req, res) => {
     res.status(500).json({ error: 'Failed to create View' });
   }
 };
+
+exports.getTableStructure = async(req,res)=>{
+
+const {schemaName,tableName} = req.body;
+const query = `SELECT DATA_TYPE,COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${schemaName}' AND TABLE_NAME = '${tableName}'`;
+
+try{
+  const result = await pool.query(query);
+  res.status(200).json({data : result.rows})
+  console.log("getting structure")
+}catch(e){
+  res.status(400).json({error:'Error Encountered while getting the structure of the Table'})
+}
+}

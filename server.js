@@ -11,8 +11,9 @@ const userRoutes = require('./routes/userRoutes.js');
 const userPermissionRoutes = require('./routes/secureRoutes.js')
 const mfaRoutes = require('./routes/mfaRoutes.js')
 const dataRoutes = require('./routes/dataRoutes.js');
+const webhookRoutes = require('./routes/webhookRoutes.js');
 const pool = require("./database/databaseConnection.js");
-pool
+
 
 const PORT = 3000 || process.env.PORT;
 // Basic Middleware
@@ -29,7 +30,7 @@ const corsOptions = {
   
 // Rate limiting
 app.use(rateLimit({windowMs :15 * 60 * 1000, //15 min
-    max:100,
+    max:10000,
     message : 'Too many requests, please try again later'
 }));
 
@@ -41,6 +42,7 @@ app.use('/users', userRoutes);
 app.use('/data', dataRoutes);
 app.use('/secure', userPermissionRoutes);
 app.use('/mfa',mfaRoutes);
+app.use('/webhooks',webhookRoutes);
 
 
 app.listen(PORT,()=>{
