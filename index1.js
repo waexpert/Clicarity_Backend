@@ -6,8 +6,8 @@ const AWS = require('aws-sdk');
 
 // Configure AWS SDK
 const s3 = new AWS.S3({
-  accessKeyId: 'AKIASREQRA5PES4X3U6A',
-  secretAccessKey: '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',
+  accessKeyId: process.env.ACCESS_KEY,
+  secretAccessKey: process.env.SECRET_ACCESS_KEY,
 });
 
 // Read tasks from tasks.json
