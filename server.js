@@ -14,6 +14,9 @@ const dataRoutes = require('./routes/dataRoutes.js')
 const { createPdfs } = require("./index2");
 const pool = require("./database/databaseConnection.js");
 const { nanoid } = require('nanoid');
+const webhookRoutes = require('./routes/webhookRoutes.js');
+
+
 
 const PORT = 3000 || process.env.PORT;
 // Basic Middleware
@@ -23,14 +26,14 @@ app.use(helmet());
 
 // CORS configuration
 const corsOptions = {
-    origin: 'http://localhost:3001',
+    origin: 'http://localhost:5173',
     credentials: true, // if you're using cookies or authentication headers
   };
   app.use(cors(corsOptions));
   
 // Rate limiting
 app.use(rateLimit({windowMs :15 * 60 * 1000, //15 min
-    max:100,
+    max:10000,
     message : 'Too many requests, please try again later'
 }));
 
@@ -44,6 +47,7 @@ app.use('/users', userRoutes);
 app.use('/data', dataRoutes);
 app.use('/secure', userPermissionRoutes);
 app.use('/mfa',mfaRoutes);
+app.use('/webhooks',webhookRoutes);
 
 app.get('/',(req,res)=>{
 res.send("api is working")
