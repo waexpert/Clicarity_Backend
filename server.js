@@ -43,6 +43,10 @@ app.use('/data', dataRoutes);
 app.use('/secure', userPermissionRoutes);
 app.use('/mfa',mfaRoutes);
 app.use('/webhooks',webhookRoutes);
+app.get('/getVendors',async(req,res)=>{
+    const data = await pool.query(`SELECT * FROM public.processvendors;`)
+    res.send(data.rows);
+})
 
 
 app.listen(PORT,()=>{

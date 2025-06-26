@@ -96,8 +96,8 @@ function createRecord(schemaName, tableName, record) {
     INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
     VALUES (${placeholders.join(', ')})
     ON CONFLICT (us_id) DO UPDATE SET ${updateSetClause}
-    RETURNING *;
-  `;
+    RETURNING *`;
+  ;
 
   return { query, values };
 }
@@ -204,6 +204,12 @@ async function getAllData(schemaName,tableName){
   `;
 }
 
+async function getRecordById(schemaName,tableName,recordId) {
+  return `
+  Select * From '${schemaName}.${tableName};
+  `;
+}
+
 
 module.exports = {
   createRecord,
@@ -211,5 +217,6 @@ module.exports = {
   createBulkInsertQuery,
   ensureUniqueConstraint,
   toPostgresDate,
-  getAllData
+  getAllData,
+  getRecordById
 };

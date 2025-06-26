@@ -53,6 +53,80 @@ exports.createProductTable = async(req,res)=>{
   }
 }
 
+// V1 Table creation Logic
+
+// function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
+//   if (!fields || fields.length === 0) {
+//     throw new Error("Fields array cannot be empty or null.");
+//   }
+//   if (!tableName || tableName.trim() === "") {
+//     throw new Error("Table name cannot be empty or null.");
+//   }
+
+//   const columns = fields.map((field) => {
+//     let columnDefinition = `"${field.name}"`;
+
+//     // Determine SQL type
+//     switch (field.type.toLowerCase()) {
+//       case 'number':
+//         columnDefinition += ' INTEGER';
+//         break;
+//       case 'text':
+//         columnDefinition += ' TEXT';
+//         break;
+//       case 'date':
+//         columnDefinition += ' DATE';
+//         break;
+//       case 'boolean':
+//         columnDefinition += ' BOOLEAN';
+//         break;
+//       default:
+//         columnDefinition += ' TEXT';
+//     }
+
+//     // Special handling for UUID-based id
+//     if (field.name === 'id' && useUUID) {
+//       columnDefinition = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
+//     } else {
+//       if (field.defaultValue !== null && field.defaultValue !== undefined) {
+//         if (typeof field.defaultValue === 'string') {
+//           columnDefinition += ` DEFAULT '${field.defaultValue}'`;
+//         } else {
+//           columnDefinition += ` DEFAULT ${field.defaultValue}`;
+//         }
+//       }
+
+//       if (field.locked) {
+//         columnDefinition += ' NOT NULL';
+//       }
+//     }
+
+//     return columnDefinition;
+//   });
+
+//   // Sanitize schema name and combine it with the table name
+//   const fullTableName = `"${schemaName}"."${tableName}"`;
+
+//   const query = `CREATE TABLE IF NOT EXISTS ${fullTableName} (${columns.join(', ')})`;
+//   return query;
+// }
+
+// exports.createTable = async(req,res)=>{
+//   const {fields,table_name,schema_name,id} = req.body;
+//   const createTableQuery = generateCreateTableQuery(fields, table_name, true,schema_name);
+//   try{
+//     await pool.query(createTableQuery);
+//     res.status(200).json({message : `Table created succesfully in schema ${schema_name} of name ${table_name}`});
+//   }catch(err){
+//     console.error('Error Creating Table',err);
+//     res.status(500).json({error :'Failed to create Table'})
+//   }
+
+// } 
+
+
+// V2 column creation Logic
+
 function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
   if (!fields || fields.length === 0) {
     throw new Error("Fields array cannot be empty or null.");
@@ -61,45 +135,59 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
     throw new Error("Table name cannot be empty or null.");
   }
 
-  const columns = fields.map((field) => {
-    let columnDefinition = `"${field.name}"`;
+  const columns = [];
+
+  fields.forEach((field) => {
+    let baseColumnDefinition;
+
+    // Special handling for UUID-based id
+    if (field.name === 'id' && useUUID) {
+      baseColumnDefinition = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
+      columns.push(baseColumnDefinition);
+      return; // Skip adding *_date and *_comment for UUID primary key
+    }
+
+    // Define base column
+    baseColumnDefinition = `"${field.name}"`;
 
     // Determine SQL type
     switch (field.type.toLowerCase()) {
       case 'number':
-        columnDefinition += ' INTEGER';
+        baseColumnDefinition += ' INTEGER';
         break;
       case 'text':
-        columnDefinition += ' TEXT';
+        baseColumnDefinition += ' TEXT';
         break;
       case 'date':
-        columnDefinition += ' DATE';
+        baseColumnDefinition += ' DATE';
         break;
       case 'boolean':
-        columnDefinition += ' BOOLEAN';
+        baseColumnDefinition += ' BOOLEAN';
         break;
       default:
-        columnDefinition += ' TEXT';
+        baseColumnDefinition += ' TEXT';
     }
 
-    // Special handling for UUID-based id
-    if (field.name === 'id' && useUUID) {
-      columnDefinition = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
-    } else {
-      if (field.defaultValue !== null && field.defaultValue !== undefined) {
-        if (typeof field.defaultValue === 'string') {
-          columnDefinition += ` DEFAULT '${field.defaultValue}'`;
-        } else {
-          columnDefinition += ` DEFAULT ${field.defaultValue}`;
-        }
-      }
-
-      if (field.locked) {
-        columnDefinition += ' NOT NULL';
+    // Add default value if present
+    if (field.defaultValue !== null && field.defaultValue !== undefined) {
+      if (typeof field.defaultValue === 'string') {
+        baseColumnDefinition += ` DEFAULT '${field.defaultValue}'`;
+      } else {
+        baseColumnDefinition += ` DEFAULT ${field.defaultValue}`;
       }
     }
 
-    return columnDefinition;
+    if (field.locked) {
+      baseColumnDefinition += ' NOT NULL';
+    }
+
+    columns.push(baseColumnDefinition);
+
+    // Add *_date column
+    columns.push(`"${field.name}_date" DATE`);
+
+    // Add *_comment column
+    columns.push(`"${field.name}_comment" TEXT`);
   });
 
   // Sanitize schema name and combine it with the table name
@@ -110,17 +198,19 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 }
 
 exports.createTable = async(req,res)=>{
-  const {fields,table_name,schema_name,id} = req.body;
-  const createTableQuery = generateCreateTableQuery(fields, table_name, true,schema_name);
-  try{
+  const {fields, table_name, schema_name} = req.body;
+  const createTableQuery = generateCreateTableQuery(fields, table_name, true, schema_name);
+  try {
     await pool.query(createTableQuery);
-    res.status(200).json({message : `Table created succesfully in schema ${schema_name} of name ${table_name}`});
-  }catch(err){
-    console.error('Error Creating Table',err);
-    res.status(500).json({error :'Failed to create Table'})
+    res.status(200).json({ message: `Table created successfully in schema ${schema_name} with name ${table_name}` });
+  } catch(err) {
+    console.error('Error Creating Table', err);
+    res.status(500).json({ error: 'Failed to create Table' });
   }
+}
 
-} 
+
+
 
 exports.createRoles = async(req,res) =>{
   const {name,permissions,schemaName} = req.body;
@@ -264,3 +354,4 @@ try{
   res.status(400).json({error:'Error Encountered while getting the structure of the Table'})
 }
 }
+

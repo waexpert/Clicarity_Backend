@@ -109,3 +109,50 @@ exports.getAllData = async(req,res) =>{
     
     
 }
+
+
+exports.updateRecordWithTimeStamp = async (req, res) => {
+  const { schemaName, tableName, recordId, columnName, value, ownerId } = req.query;
+  console.log(req.query)
+
+  // Validate schema name
+  if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+    return res.status(400).json({ error: 'Invalid schema name' });
+  }
+
+  try {
+    // Step 1: Get existing record using raw SQL
+
+    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE id = '${recordId}';`
+    const result = await pool.query(query);
+  
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Record not found' });
+    }
+
+    // Step 2: Extract previous value safely
+    const previousValue = result.rows[0][columnName] || '';
+
+
+    const clearval = value.replace("'",'');
+    // Step 3: Create new value with timestamp
+    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const newValue = `${timestamp} --- ${clearval}\n${previousValue}`;
+
+    // Step 4: Update record using raw SQL
+    const updateQuery = queries.updateRecord(schemaName, tableName, recordId, columnName, newValue);
+    await pool.query(updateQuery);
+
+    res.status(200).json({
+      message: `Record in table ${schemaName}.${tableName} updated successfully.`,
+      result
+    });
+  } catch (err) {
+    console.error('Error Updating the Record:', err);
+    res.status(500).json({
+      error: 'Failed to Update Record',
+      details: err.message
+    });
+  }
+};
