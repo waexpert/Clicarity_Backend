@@ -156,3 +156,60 @@ exports.updateRecordWithTimeStamp = async (req, res) => {
     });
   }
 };
+
+// url?schemaName=wa_expert&tableName=tasks&recordId=0d70b71c-4c2a-4d2d-82b5-dac08a72ecde&ownerId=73421c55-3152-455a-99e8-e09fbb00d9b8&col1=notes&val1=testing&col2
+
+exports.updateMultipleColumns = async (req, res) => {
+  const {
+    schemaName,
+    tableName,
+    recordId,
+    ...rest
+  } = req.query;
+
+  try {
+    if (!schemaName || !tableName || !recordId) {
+      return res.status(400).json({ error: 'Missing schemaName, tableName, or recordId' });
+    }
+
+    // Extract colN and valN pairs
+    const columnValuePairs = [];
+    const keys = Object.keys(rest);
+    const colValPairs = keys.filter(k => k.startsWith('col')).length;
+
+    for (let i = 1; i <= colValPairs; i++) {
+      const colKey = `col${i}`;
+      const valKey = `val${i}`;
+
+      if (rest[colKey] && rest[valKey] !== undefined) {
+        columnValuePairs.push([rest[colKey], rest[valKey]]);
+      }
+    }
+
+    if (columnValuePairs.length === 0) {
+      return res.status(400).json({ error: 'No column-value pairs provided' });
+    }
+
+    const { query, values } = queries.updateMultipleColumns({
+      schemaName,
+      tableName,
+      recordId,
+      columnValuePairs
+    });
+
+    const result = await pool.query(query, values);
+
+    res.status(200).json({
+      message: 'Update successful',
+      data: result.rows[0]
+    });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({
+      error: 'Failed to update columns',
+      details: e.message
+    });
+  }
+};
+

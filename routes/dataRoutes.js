@@ -1,4 +1,4 @@
-const { createRecord, updateRecord, createBulkRecord, getAllData, updateRecordWithTimeStamp } = require("../controllers/dataController.js");
+const { createRecord, updateRecord, createBulkRecord, getAllData, updateRecordWithTimeStamp, updateMultipleColumns } = require("../controllers/dataController.js");
 const express = require("express");
 const router = express.Router();
 
@@ -8,5 +8,6 @@ router.get("/updateRecord",updateRecord);
 router.post("/createBulkRecord",createBulkRecord)
 router.post("/getAllData",getAllData)
 router.get("/updateComment",updateRecordWithTimeStamp)
+router.get("/updateMultiple",updateMultipleColumns)
 
 module.exports = router;

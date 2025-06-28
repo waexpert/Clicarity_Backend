@@ -211,6 +211,35 @@ async function getRecordById(schemaName,tableName,recordId) {
 }
 
 
+
+function updateMultipleColumns({ schemaName, tableName, recordId, columnValuePairs }) {
+  const setClauses = [];
+  const values = [];
+
+  columnValuePairs.forEach(([col, val], index) => {
+    setClauses.push(`"${col}" = $${index + 1}`);
+    values.push(val);
+  });
+
+  // Add recordId to WHERE clause
+  const recordIdIndex = values.length + 1;
+  values.push(recordId);
+
+  const query = `
+    UPDATE "${schemaName}"."${tableName}"
+    SET ${setClauses.join(', ')}
+    WHERE id = $${recordIdIndex}
+    RETURNING *;
+  `;
+
+  return { query, values };
+}
+
+
+
+
+
+
 module.exports = {
   createRecord,
   updateRecord,
@@ -218,5 +247,6 @@ module.exports = {
   ensureUniqueConstraint,
   toPostgresDate,
   getAllData,
-  getRecordById
+  getRecordById,
+  updateMultipleColumns
 };
