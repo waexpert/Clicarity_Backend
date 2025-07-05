@@ -10,7 +10,7 @@ exports.generateWebhooks = async(req, res) => {
     const stringInput = name;
     const webhookId = uuidv5(stringInput, namespace);
     
-    const webhook = `${process.env.BASE_URL}/webhooks/${ownerId}/${webhookId}`;
+    const webhook = `https://click.wa.expert/api/webhooks/${ownerId}/${webhookId}`;
     res.status(200).json({
         message: 'webhook created successfully',
         url: webhook,
