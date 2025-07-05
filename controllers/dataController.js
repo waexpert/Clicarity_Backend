@@ -112,7 +112,7 @@ exports.getAllData = async(req,res) =>{
 
 
 exports.updateRecordWithTimeStamp = async (req, res) => {
-  const { schemaName, tableName, recordId, columnName, value, ownerId } = req.query;
+  const { schemaName, tableName, recordId, columnName,comment:value, ownerId } = req.body;
   console.log(req.query)
 
   // Validate schema name

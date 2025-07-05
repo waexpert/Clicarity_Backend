@@ -48,6 +48,11 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(helmet());
+app.get('/getVendors',async(req,res)=>{
+    const data = await pool.query(`SELECT * FROM public.processvendors;`)
+    res.send({data : data.rows});
+})
+
 
 // CORS configuration
 const corsOptions = {
@@ -58,11 +63,11 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Rate limiting
-app.use(rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 min
-    max: 100,
-    message: 'Too many requests, please try again later'
-}));
+//app.use(rateLimit({
+//    windowMs: 15 * 60 * 1000, // 15 min
+//    max: 100,
+//    message: 'Too many requests, please try again later'
+//}));
 
 // RabbitMQ setup
 let channel; // RabbitMQ channel
