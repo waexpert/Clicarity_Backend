@@ -210,8 +210,6 @@ exports.createTable = async(req,res)=>{
 }
 
 
-
-
 exports.createRoles = async(req,res) =>{
   const {name,permissions,schemaName} = req.body;
 

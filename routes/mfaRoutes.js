@@ -40,7 +40,7 @@ router.post('/verify', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
     const secret = result.rows[0].mfa_secret;
-    console.log(secret)
+    console.log(result.rows);
     const isVerified = speakeasy.totp.verify({
       secret,
       encoding: 'base32',
