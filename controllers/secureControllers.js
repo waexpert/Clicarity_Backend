@@ -207,27 +207,24 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
   const columns = [];
 
-  // Always include UUID 'id' column
+  // Always include UUID primary key column if not in fields
   const hasIdField = fields.some(f => f.name === 'id');
   if (!hasIdField && useUUID) {
     columns.push(`"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`);
   }
 
-  // Always include 'us_id' column as UNIQUE NOT NULL
+  // Always include 'us_id' with UNIQUE NOT NULL constraint if not already passed
   const hasUsIdField = fields.some(f => f.name === 'us_id');
   if (!hasUsIdField) {
     columns.push(`"us_id" TEXT UNIQUE NOT NULL`);
   }
 
   fields.forEach((field) => {
-    // Skip 'id' and 'us_id' if already handled
-    if ((field.name === 'id' && useUUID) || field.name === 'us_id') {
-      return;
-    }
+    // Skip 'id' and 'us_id' since they were added above
+    if ((field.name === 'id' && useUUID) || field.name === 'us_id') return;
 
     let columnDef = `"${field.name}"`;
 
-    // Determine data type
     switch (field.type.toLowerCase()) {
       case 'number':
         columnDef += ' INTEGER';
@@ -242,10 +239,10 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
         columnDef += ' BOOLEAN';
         break;
       default:
-        columnDef += ' TEXT'; // fallback
+        columnDef += ' TEXT';
     }
 
-    // Handle default values
+    // Default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
@@ -254,7 +251,7 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
       }
     }
 
-    // Handle NOT NULL
+    // NOT NULL if locked
     if (field.locked) {
       columnDef += ' NOT NULL';
     }
