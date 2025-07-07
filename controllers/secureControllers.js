@@ -127,6 +127,76 @@ exports.createProductTable = async(req,res)=>{
 
 // V2 column creation Logic
 
+// function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
+//   if (!fields || fields.length === 0) {
+//     throw new Error("Fields array cannot be empty or null.");
+//   }
+//   if (!tableName || tableName.trim() === "") {
+//     throw new Error("Table name cannot be empty or null.");
+//   }
+
+//   const columns = [];
+
+//   fields.forEach((field) => {
+//     let baseColumnDefinition;
+
+//     // Special handling for UUID-based id
+//     if (field.name === 'id' && useUUID) {
+//       baseColumnDefinition = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
+//       columns.push(baseColumnDefinition);
+//       return; // Skip adding *_date and *_comment for UUID primary key
+//     }
+
+//     // Define base column
+//     baseColumnDefinition = `"${field.name}"`;
+
+//     // Determine SQL type
+//     switch (field.type.toLowerCase()) {
+//       case 'number':
+//         baseColumnDefinition += ' INTEGER';
+//         break;
+//       case 'text':
+//         baseColumnDefinition += ' TEXT';
+//         break;
+//       case 'date':
+//         baseColumnDefinition += ' DATE';
+//         break;
+//       case 'boolean':
+//         baseColumnDefinition += ' BOOLEAN';
+//         break;
+//       default:
+//         baseColumnDefinition += ' TEXT';
+//     }
+
+//     // Add default value if present
+//     if (field.defaultValue !== null && field.defaultValue !== undefined) {
+//       if (typeof field.defaultValue === 'string') {
+//         baseColumnDefinition += ` DEFAULT '${field.defaultValue}'`;
+//       } else {
+//         baseColumnDefinition += ` DEFAULT ${field.defaultValue}`;
+//       }
+//     }
+
+//     if (field.locked) {
+//       baseColumnDefinition += ' NOT NULL';
+//     }
+
+//     columns.push(baseColumnDefinition);
+
+//     // Add *_date column
+//     columns.push(`"${field.name}_date" DATE`);
+
+//     // Add *_comment column
+//     columns.push(`"${field.name}_comment" TEXT`);
+//   });
+
+//   // Sanitize schema name and combine it with the table name
+//   const fullTableName = `"${schemaName}"."${tableName}"`;
+
+//   const query = `CREATE TABLE IF NOT EXISTS ${fullTableName} (${columns.join(', ')})`;
+//   return query;
+// }
+
 function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
   if (!fields || fields.length === 0) {
     throw new Error("Fields array cannot be empty or null.");
@@ -137,65 +207,71 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
   const columns = [];
 
-  fields.forEach((field) => {
-    let baseColumnDefinition;
+  // Always include UUID 'id' column
+  const hasIdField = fields.some(f => f.name === 'id');
+  if (!hasIdField && useUUID) {
+    columns.push(`"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`);
+  }
 
-    // Special handling for UUID-based id
-    if (field.name === 'id' && useUUID) {
-      baseColumnDefinition = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
-      columns.push(baseColumnDefinition);
-      return; // Skip adding *_date and *_comment for UUID primary key
+  // Always include 'us_id' column as UNIQUE NOT NULL
+  const hasUsIdField = fields.some(f => f.name === 'us_id');
+  if (!hasUsIdField) {
+    columns.push(`"us_id" TEXT UNIQUE NOT NULL`);
+  }
+
+  fields.forEach((field) => {
+    // Skip 'id' and 'us_id' if already handled
+    if ((field.name === 'id' && useUUID) || field.name === 'us_id') {
+      return;
     }
 
-    // Define base column
-    baseColumnDefinition = `"${field.name}"`;
+    let columnDef = `"${field.name}"`;
 
-    // Determine SQL type
+    // Determine data type
     switch (field.type.toLowerCase()) {
       case 'number':
-        baseColumnDefinition += ' INTEGER';
+        columnDef += ' INTEGER';
         break;
       case 'text':
-        baseColumnDefinition += ' TEXT';
+        columnDef += ' TEXT';
         break;
       case 'date':
-        baseColumnDefinition += ' DATE';
+        columnDef += ' DATE';
         break;
       case 'boolean':
-        baseColumnDefinition += ' BOOLEAN';
+        columnDef += ' BOOLEAN';
         break;
       default:
-        baseColumnDefinition += ' TEXT';
+        columnDef += ' TEXT'; // fallback
     }
 
-    // Add default value if present
+    // Handle default values
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       if (typeof field.defaultValue === 'string') {
-        baseColumnDefinition += ` DEFAULT '${field.defaultValue}'`;
+        columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
-        baseColumnDefinition += ` DEFAULT ${field.defaultValue}`;
+        columnDef += ` DEFAULT ${field.defaultValue}`;
       }
     }
 
+    // Handle NOT NULL
     if (field.locked) {
-      baseColumnDefinition += ' NOT NULL';
+      columnDef += ' NOT NULL';
     }
 
-    columns.push(baseColumnDefinition);
+    columns.push(columnDef);
 
-    // Add *_date column
+    // Add *_date and *_comment columns
     columns.push(`"${field.name}_date" DATE`);
-
-    // Add *_comment column
     columns.push(`"${field.name}_comment" TEXT`);
   });
 
-  // Sanitize schema name and combine it with the table name
   const fullTableName = `"${schemaName}"."${tableName}"`;
-
   const query = `CREATE TABLE IF NOT EXISTS ${fullTableName} (${columns.join(', ')})`;
+
   return query;
 }
+
 
 exports.createTable = async(req,res)=>{
   const {fields, table_name, schema_name} = req.body;

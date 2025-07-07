@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 
 
 const bcrypt = require('bcrypt');
+const { sendEmail } = require("../utils/emailService");
 
 exports.registerUser = async (req, res) => {
   const { first_name, last_name, email, password, phone_number, country, currency, is_verified } = req.body;
@@ -39,7 +40,8 @@ exports.registerUser = async (req, res) => {
     
     const user = result.rows[0];
     // return res.status(201).json({ message: "User created successfully", user });
-    
+
+    sendEmail(email);
   sendJWTToken(user, 201, res);
   } catch (error) {
     console.error("Registration error:", error);
@@ -65,7 +67,7 @@ exports.loginUser = async (req, res, next) => {
     if (!isPasswordMatched) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
-
+    sendEmail(email);
     sendJWTToken(user, 200, res);
   } catch (error) {
     console.error("Login error:", error);
