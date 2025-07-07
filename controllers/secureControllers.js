@@ -207,24 +207,38 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
   const columns = [];
 
-  // Always include UUID primary key column if not in fields
-  const hasIdField = fields.some(f => f.name === 'id');
-  if (!hasIdField && useUUID) {
-    columns.push(`"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`);
+  const normalizedFields = [...fields];
+
+  // Add id field if not included
+  const hasId = normalizedFields.some(f => f.name === 'id');
+  if (!hasId && useUUID) {
+    normalizedFields.unshift({ name: 'id', type: 'uuid', systemField: true });
   }
 
-  // Always include 'us_id' with UNIQUE NOT NULL constraint if not already passed
-  const hasUsIdField = fields.some(f => f.name === 'us_id');
-  if (!hasUsIdField) {
-    columns.push(`"us_id" TEXT UNIQUE NOT NULL`);
+  // Add us_id field if not included
+  const hasUsId = normalizedFields.some(f => f.name === 'us_id');
+  if (!hasUsId) {
+    normalizedFields.push({ name: 'us_id', type: 'text', systemField: true });
   }
 
-  fields.forEach((field) => {
-    // Skip 'id' and 'us_id' since they were added above
-    if ((field.name === 'id' && useUUID) || field.name === 'us_id') return;
-
+  normalizedFields.forEach((field) => {
     let columnDef = `"${field.name}"`;
 
+    // Force override for 'id'
+    if (field.name === 'id' && useUUID) {
+      columnDef = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
+      columns.push(columnDef);
+      return;
+    }
+
+    // Force override for 'us_id'
+    if (field.name === 'us_id') {
+      columnDef = `"us_id" TEXT UNIQUE NOT NULL`;
+      columns.push(columnDef);
+      return;
+    }
+
+    // Determine column type
     switch (field.type.toLowerCase()) {
       case 'number':
         columnDef += ' INTEGER';
@@ -238,11 +252,14 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
       case 'boolean':
         columnDef += ' BOOLEAN';
         break;
+      case 'uuid':
+        columnDef += ' UUID';
+        break;
       default:
-        columnDef += ' TEXT';
+        columnDef += ' TEXT'; // fallback
     }
 
-    // Default value
+    // Add default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
@@ -251,16 +268,18 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
       }
     }
 
-    // NOT NULL if locked
+    // NOT NULL for locked fields
     if (field.locked) {
       columnDef += ' NOT NULL';
     }
 
     columns.push(columnDef);
 
-    // Add *_date and *_comment columns
-    columns.push(`"${field.name}_date" DATE`);
-    columns.push(`"${field.name}_comment" TEXT`);
+    // Add *_date and *_comment columns for non-system fields
+    if (!field.systemField) {
+      columns.push(`"${field.name}_date" DATE`);
+      columns.push(`"${field.name}_comment" TEXT`);
+    }
   });
 
   const fullTableName = `"${schemaName}"."${tableName}"`;
