@@ -289,6 +289,132 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 }
 
 
+exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
+  if (!newFields || newFields.length === 0) {
+    throw new Error("New fields array cannot be empty.");
+  }
+  if (!tableName || tableName.trim() === "") {
+    throw new Error("Table name cannot be empty.");
+  }
+
+  const alterStatements = [];
+  const fullTableName = `"${schemaName}"."${tableName}"`;
+
+  newFields.forEach((field) => {
+    // Skip system fields that should already exist
+    if (field.systemField || field.name === 'id' || field.name === 'us_id') {
+      return;
+    }
+
+    let columnDef = `"${field.name}"`;
+
+    // Determine column type
+    switch (field.type.toLowerCase()) {
+      case 'number':
+        columnDef += ' INTEGER';
+        break;
+      case 'text':
+        columnDef += ' TEXT';
+        break;
+      case 'date':
+        columnDef += ' DATE';
+        break;
+      case 'boolean':
+        columnDef += ' BOOLEAN';
+        break;
+      case 'uuid':
+        columnDef += ' UUID';
+        break;
+      default:
+        columnDef += ' TEXT';
+    }
+
+    // Add default value
+    if (field.defaultValue !== null && field.defaultValue !== undefined) {
+      if (typeof field.defaultValue === 'string') {
+        columnDef += ` DEFAULT '${field.defaultValue}'`;
+      } else {
+        columnDef += ` DEFAULT ${field.defaultValue}`;
+      }
+    }
+
+    // Add the main column
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS ${columnDef}`);
+    
+    // Add associated date and comment columns
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" DATE`);
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_comment" TEXT`);
+  });
+
+  return alterStatements;
+}
+
+// Backend endpoint function
+async function addColumnsToTable(req, res) {
+  try {
+    const { table_name, fields, schema_name, id } = req.body;
+    
+    // First check if table exists
+    const tableExistsQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = $1 AND table_name = $2
+      )
+    `;
+    
+    const tableExists = await db.query(tableExistsQuery, [schema_name, table_name]);
+    
+    if (!tableExists.rows[0].exists) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Table does not exist. Create the table first." 
+      });
+    }
+
+    // Get existing columns
+    const existingColumnsQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = $1 AND table_name = $2
+    `;
+    
+    const existingColumns = await db.query(existingColumnsQuery, [schema_name, table_name]);
+    const existingColumnNames = existingColumns.rows.map(row => row.column_name);
+
+    // Filter out fields that already exist
+    const newFields = fields.filter(field => !existingColumnNames.includes(field.name));
+
+    if (newFields.length === 0) {
+      return res.status(200).json({ 
+        success: true, 
+        message: "No new columns to add. All fields already exist." 
+      });
+    }
+
+    // Generate ALTER TABLE statements
+    const alterStatements = generateAlterTableQuery(newFields, table_name, schema_name);
+
+    // Execute each ALTER statement
+    for (const statement of alterStatements) {
+      await db.query(statement);
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Successfully added ${newFields.length} new columns to table ${table_name}`,
+      addedColumns: newFields.map(f => f.name)
+    });
+
+  } catch (error) {
+    console.error('Error adding columns to table:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to add columns to table',
+      error: error.message 
+    });
+  }
+}
+
 exports.createTable = async(req,res)=>{
   const {fields, table_name, schema_name} = req.body;
   const createTableQuery = generateCreateTableQuery(fields, table_name, true, schema_name);
