@@ -32,7 +32,7 @@ app.get('/getVendors',async(req,res)=>{
 
 // CORS configuration
 const corsOptions = {
-    origin: 'http://localhost:5173',
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
 };
