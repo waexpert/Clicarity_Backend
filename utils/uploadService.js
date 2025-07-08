@@ -8,7 +8,7 @@ const s3 = new AWS.S3({
     }
 })
 
-export async function generateUploadURL(fileType = 'application/octet-stream') {
+exports.generateUploadURL = async (fileType = 'application/octet-stream')=>{
     try {
         const imageName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
         
