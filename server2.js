@@ -132,30 +132,24 @@ const dataRoutes = require('./routes/dataRoutes.js');
 const webhookRoutes = require('./routes/webhookRoutes.js');
 const serviceRoutes = require('./routes/serviceRoutes.js');
 
-// Service imports - ADD DEBUG LOGGING
+// Service imports
 console.log('🔍 Importing birthday and reminder services...');
 
 try {
     const reminderService = require('./utils/reminderService.js');
-    console.log('✅ Reminder service imported:', typeof reminderService);
-    console.log('📊 Reminder service exports:', Object.keys(reminderService));
+    console.log('✅ Reminder service imported');
     
     const birthdayService = require('./utils/birthdayService.js');
-    console.log('✅ Birthday service imported:', typeof birthdayService);
-    console.log('📊 Birthday service exports:', Object.keys(birthdayService));
+    console.log('✅ Birthday service imported');
     
     // Extract router and start functions
     const { router: reminderRoutes, startReminderSystem } = reminderService;
     const { router: birthdayRoutes, startBirthdaySystem } = birthdayService;
     
-    console.log('📊 Reminder router type:', typeof reminderRoutes);
-    console.log('📊 Birthday router type:', typeof birthdayRoutes);
-    console.log('📊 Start reminder function:', typeof startReminderSystem);
-    console.log('📊 Start birthday function:', typeof startBirthdaySystem);
+    console.log('✅ All services extracted successfully');
     
 } catch (importError) {
     console.error('❌ Error importing services:', importError);
-    console.error('❌ Stack trace:', importError.stack);
     process.exit(1);
 }
 
@@ -167,13 +161,16 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
-app.use(helmet({ contentSecurityPolicy: false })); // Simplified for debugging
+
+// Simplified helmet for debugging
+app.use(helmet({ 
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false 
+}));
 
 // CORS configuration
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? ['https://click.wa.expert'] 
-        : ['http://localhost:5173', 'https://click.wa.expert', 'http://localhost:3000'],
+    origin: ['http://localhost:5173', 'https://click.wa.expert', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     optionsSuccessStatus: 200
@@ -183,12 +180,12 @@ app.use(cors(corsOptions));
 // Basic rate limiting
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000, // Increased for debugging
+    max: 1000,
     message: { error: 'Too many requests' }
 });
 app.use(generalLimiter);
 
-// Test endpoint to verify server is working
+// Test endpoint
 app.get('/test', (req, res) => {
     res.json({ 
         message: 'Server is working', 
@@ -196,10 +193,15 @@ app.get('/test', (req, res) => {
     });
 });
 
-// Register routes with debug logging
+// Register routes
 console.log('🔍 Registering routes...');
 
 try {
+    // Import again to ensure fresh references
+    const { router: reminderRoutes, startReminderSystem } = require('./utils/reminderService.js');
+    const { router: birthdayRoutes, startBirthdaySystem } = require('./utils/birthdayService.js');
+    
+    // Register all routes
     app.use('/users', userRoutes);
     console.log('✅ User routes registered');
     
@@ -218,75 +220,73 @@ try {
     app.use('/service', serviceRoutes);
     console.log('✅ Service routes registered');
     
-    // Register reminder and birthday routes
-    const { router: reminderRoutes, startReminderSystem } = require('./utils/reminderService.js');
-    const { router: birthdayRoutes, startBirthdaySystem } = require('./utils/birthdayService.js');
-    
     app.use('/reminder', reminderRoutes);
     console.log('✅ Reminder routes registered at /reminder');
     
     app.use('/birthday', birthdayRoutes);
     console.log('✅ Birthday routes registered at /birthday');
     
-    // List all registered routes for debugging
-    console.log('🔍 All registered routes:');
-    app._router.stack.forEach((middleware) => {
-        if (middleware.route) {
-            console.log(`  ${Object.keys(middleware.route.methods).join(', ').toUpperCase()} ${middleware.route.path}`);
-        } else if (middleware.name === 'router') {
-            console.log(`  Router middleware: ${middleware.regexp}`);
-            if (middleware.handle && middleware.handle.stack) {
-                middleware.handle.stack.forEach((route) => {
-                    if (route.route) {
-                        const methods = Object.keys(route.route.methods).join(', ').toUpperCase();
-                        console.log(`    ${methods} ${middleware.regexp.source.replace('\\/?(?=\\/|$)', '')}${route.route.path}`);
-                    }
-                });
-            }
-        }
-    });
+    console.log('✅ All routes registered successfully');
     
 } catch (routeError) {
     console.error('❌ Error registering routes:', routeError);
     console.error('❌ Stack trace:', routeError.stack);
+    process.exit(1);
 }
+
+// Add vendor endpoint (fixed)
+app.get('/getVendors', async (req, res) => {
+    try {
+        const data = await pool.query(`SELECT * FROM public.processvendors;`);
+        res.json({
+            success: true,
+            data: data.rows
+        });
+    } catch (error) {
+        console.error('Error fetching vendors:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch vendors'
+        });
+    }
+});
 
 // Health check
 app.get('/health', (req, res) => {
     res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
-        routes: {
-            birthday: app._router.stack.some(layer => 
-                layer.regexp.source.includes('birthday')
-            ),
-            reminder: app._router.stack.some(layer => 
-                layer.regexp.source.includes('reminder')
-            )
-        }
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
 app.get('/', (req, res) => {
     res.json({
         message: "API is working",
-        availableRoutes: [
+        version: "1.0.0",
+        availableEndpoints: [
+            'GET /',
             'GET /health',
             'GET /test',
+            'GET /getVendors',
             'POST /birthday/add',
             'GET /birthday/list',
+            'GET /birthday/today',
             'POST /reminder/add',
             'GET /reminder/list'
-        ]
+        ],
+        timestamp: new Date().toISOString()
     });
 });
 
-// Error handling
+// Error handling middleware
 app.use((err, req, res, next) => {
     console.error('❌ Global error:', err);
-    res.status(500).json({
+    res.status(err.status || 500).json({
         error: 'Internal server error',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -297,13 +297,8 @@ app.use('*', (req, res) => {
         error: 'Route not found',
         path: req.originalUrl,
         method: req.method,
-        availableRoutes: [
-            'GET /',
-            'GET /health',
-            'GET /test',
-            'POST /birthday/add',
-            'GET /birthday/list'
-        ]
+        suggestion: 'Check the available endpoints at GET /',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -314,50 +309,81 @@ const startServer = async () => {
         
         // Test database connection
         try {
-            await pool.query('SELECT 1');
+            await pool.query('SELECT NOW()');
             console.log('✅ Database connection successful');
         } catch (dbError) {
             console.error('❌ Database connection failed:', dbError.message);
-            // Don't exit, continue without DB for route testing
+            console.log('⚠️ Continuing without database connection...');
         }
         
-        // Start server
+        // Start server first
         const server = app.listen(PORT, () => {
             console.log(`🚀 Server running at http://localhost:${PORT}`);
-            console.log(`📍 Test the API:`);
-            console.log(`   GET  http://localhost:${PORT}/`);
-            console.log(`   GET  http://localhost:${PORT}/health`);
-            console.log(`   POST http://localhost:${PORT}/birthday/add`);
+            console.log(`📍 Test the birthday API:`);
+            console.log(`   curl -X POST http://localhost:${PORT}/birthday/add \\`);
+            console.log(`        -H "Content-Type: application/json" \\`);
+            console.log(`        -d '{"name":"Test","phone":"123","birthday_date":"1990-01-01","sender_name":"Admin","sender_phone":"456","special_day":"Birthday"}'`);
         });
         
-        // Initialize services
-        try {
-            console.log('🔄 Starting background services...');
-            
-            if (typeof startReminderSystem === 'function') {
-                await startReminderSystem();
-                console.log('✅ Reminder system started');
-            } else {
-                console.log('⚠️ Reminder system start function not available');
+        // Initialize background services after server starts
+        setTimeout(async () => {
+            try {
+                console.log('🔄 Starting background services...');
+                
+                const { startReminderSystem } = require('./utils/reminderService.js');
+                const { startBirthdaySystem } = require('./utils/birthdayService.js');
+                
+                await Promise.allSettled([
+                    startReminderSystem().catch(err => {
+                        console.error('❌ Reminder system failed:', err.message);
+                    }),
+                    startBirthdaySystem().catch(err => {
+                        console.error('❌ Birthday system failed:', err.message);
+                    })
+                ]);
+                
+                console.log('✅ Background services initialization completed');
+                
+            } catch (serviceError) {
+                console.error('❌ Service initialization error:', serviceError.message);
+                console.log('🔄 Server continues without background services');
             }
+        }, 2000); // Wait 2 seconds after server starts
+        
+        // Graceful shutdown
+        const gracefulShutdown = async (signal) => {
+            console.log(`\n🛑 Received ${signal}, shutting down...`);
             
-            if (typeof startBirthdaySystem === 'function') {
-                await startBirthdaySystem();
-                console.log('✅ Birthday system started');
-            } else {
-                console.log('⚠️ Birthday system start function not available');
-            }
-            
-        } catch (serviceError) {
-            console.error('❌ Service initialization error:', serviceError);
-            console.log('🔄 Server continues without background services');
-        }
+            server.close(async () => {
+                try {
+                    await pool.end();
+                    console.log('✅ Server shutdown complete');
+                    process.exit(0);
+                } catch (error) {
+                    console.error('❌ Error during shutdown:', error);
+                    process.exit(1);
+                }
+            });
+        };
+        
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
         
     } catch (error) {
         console.error("❌ Server startup failed:", error);
         process.exit(1);
     }
 };
+
+// Error handlers
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🚨 Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('🚨 Uncaught Exception:', error);
+    process.exit(1);
+});
 
 // Start the server
 startServer();
