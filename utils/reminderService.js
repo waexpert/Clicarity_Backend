@@ -701,7 +701,7 @@ let rabbitChannel = null;
 let isShuttingDown = false;
 
 const REMINDER_QUEUE = 'reminder_notifications';
-const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://webhooks.wa.expert/webhook/686cd5afe3591ae351cc2970";
+const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://webhooks.wa.expert/webhook/686d0a86e3591ae351cc6cce";
 
 // Initialize RabbitMQ connection with retry logic
 const initRabbitMQ = async (retries = 5, delay = 2000) => {
