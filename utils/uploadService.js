@@ -1,6 +1,4 @@
-import AWS from 'aws-sdk'
-import dotenv from 'dotenv'
-dotenv.config()
+const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
     region: 'eu-north-1', 
     signatureVersion: 'v4', 
