@@ -13,7 +13,7 @@ const mfaRoutes = require('./routes/mfaRoutes.js')
 const dataRoutes = require('./routes/dataRoutes.js')
 const webhookRoutes = require('./routes/webhookRoutes.js')
 const serviceRoutes = require('./routes/serviceRoutes.js')
-const {router:reminderRoutes , startReminderSystem } = require('./utils/reminderService.js')
+const {router:reminderRoutes , startReminderSystem,processDueReminders } = require('./utils/reminderService.js')
 const {router:birthdayRoutes,startBirthdaySystem,processTodaysBirthdays} = require('./utils/birthdayService.js')
 const bodyParser = require("body-parser");
 const moment = require("moment-timezone");
@@ -84,6 +84,7 @@ const startServer = async () => {
             startReminderSystem();
             startBirthdaySystem();
             processTodaysBirthdays();
+            processDueReminders();
         });
         
         // Connect to RabbitMQ first before processing tasks
