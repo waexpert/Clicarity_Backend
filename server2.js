@@ -32,7 +32,7 @@ app.get('/getVendors',async(req,res)=>{
 
 // CORS configuration
 const corsOptions = {
-    origin: '*',
+    origin: ['http://localhost:5173','https://click.wa.expert'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
 };
