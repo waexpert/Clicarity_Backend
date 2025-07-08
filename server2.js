@@ -120,11 +120,9 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const cookieParser = require('cookie-parser');
-const csrf = require('csurf');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
-const { body, validationResult } = require('express-validator');
 
 // Route imports
 const userRoutes = require('./routes/userRoutes.js');
@@ -134,191 +132,185 @@ const dataRoutes = require('./routes/dataRoutes.js');
 const webhookRoutes = require('./routes/webhookRoutes.js');
 const serviceRoutes = require('./routes/serviceRoutes.js');
 
-// Service imports - FIX: Import both router and start functions
-const { router: reminderRoutes, startReminderSystem } = require('./utils/reminderService.js');
-const { router: birthdayRoutes, startBirthdaySystem } = require('./utils/birthdayService.js');
+// Service imports - ADD DEBUG LOGGING
+console.log('🔍 Importing birthday and reminder services...');
+
+try {
+    const reminderService = require('./utils/reminderService.js');
+    console.log('✅ Reminder service imported:', typeof reminderService);
+    console.log('📊 Reminder service exports:', Object.keys(reminderService));
+    
+    const birthdayService = require('./utils/birthdayService.js');
+    console.log('✅ Birthday service imported:', typeof birthdayService);
+    console.log('📊 Birthday service exports:', Object.keys(birthdayService));
+    
+    // Extract router and start functions
+    const { router: reminderRoutes, startReminderSystem } = reminderService;
+    const { router: birthdayRoutes, startBirthdaySystem } = birthdayService;
+    
+    console.log('📊 Reminder router type:', typeof reminderRoutes);
+    console.log('📊 Birthday router type:', typeof birthdayRoutes);
+    console.log('📊 Start reminder function:', typeof startReminderSystem);
+    console.log('📊 Start birthday function:', typeof startBirthdaySystem);
+    
+} catch (importError) {
+    console.error('❌ Error importing services:', importError);
+    console.error('❌ Stack trace:', importError.stack);
+    process.exit(1);
+}
 
 const moment = require("moment-timezone");
 const pool = require("./database/databaseConnection.js");
 const PORT = process.env.PORT || 3000;
 
-// FIX 1: Remove redundant body parsers - Express has built-in support
-app.use(express.json({ limit: '10mb' })); // Reduced from 50mb for security
+// Basic middleware
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
-
-// FIX 2: Configure helmet with proper settings
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https:"],
-        },
-    },
-    crossOriginEmbedderPolicy: false // Adjust based on your needs
-}));
+app.use(helmet({ contentSecurityPolicy: false })); // Simplified for debugging
 
 // CORS configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
         ? ['https://click.wa.expert'] 
-        : ['http://localhost:5173', 'https://click.wa.expert'],
+        : ['http://localhost:5173', 'https://click.wa.expert', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 
-// FIX 3: More reasonable rate limiting with different limits for different routes
+// Basic rate limiting
 const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Reduced from 10000
-    message: {
-        error: 'Too many requests from this IP, please try again later.',
-        retryAfter: '15 minutes'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-
-const strictLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20, // Very strict for sensitive operations
-    message: {
-        error: 'Too many requests for this operation, please try again later.',
-        retryAfter: '15 minutes'
-    }
+    max: 1000, // Increased for debugging
+    message: { error: 'Too many requests' }
 });
-
 app.use(generalLimiter);
 
-// FIX 4: Add CSRF protection
-const csrfProtection = csrf({ 
-    cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict'
-    }
+// Test endpoint to verify server is working
+app.get('/test', (req, res) => {
+    res.json({ 
+        message: 'Server is working', 
+        timestamp: new Date().toISOString() 
+    });
 });
 
-// Apply CSRF to state-changing operations
-app.use(['/users', '/data', '/secure', '/mfa'], csrfProtection);
+// Register routes with debug logging
+console.log('🔍 Registering routes...');
 
-// FIX 5: Add input validation and error handling to vendor endpoint
-app.get('/getVendors', 
-    strictLimiter, // Apply strict rate limiting
-    async (req, res) => {
-        try {
-            // Add basic authentication check
-            // if (!req.headers.authorization) {
-            //     return res.status(401).json({ error: 'Authentication required' });
-            // }
-            
-            const data = await pool.query(`SELECT id, name, status FROM public.processvendors WHERE active = true`);
-            
-            res.json({
-                success: true,
-                data: data.rows,
-                count: data.rows.length
-            });
-        } catch (error) {
-            console.error('Error fetching vendors:', error);
-            res.status(500).json({ 
-                success: false,
-                error: 'Internal server error',
-                message: process.env.NODE_ENV === 'development' ? error.message : 'Unable to fetch vendors'
-            });
+try {
+    app.use('/users', userRoutes);
+    console.log('✅ User routes registered');
+    
+    app.use('/data', dataRoutes);
+    console.log('✅ Data routes registered');
+    
+    app.use('/secure', userPermissionRoutes);
+    console.log('✅ Secure routes registered');
+    
+    app.use('/mfa', mfaRoutes);
+    console.log('✅ MFA routes registered');
+    
+    app.use('/webhooks', webhookRoutes);
+    console.log('✅ Webhook routes registered');
+    
+    app.use('/service', serviceRoutes);
+    console.log('✅ Service routes registered');
+    
+    // Register reminder and birthday routes
+    const { router: reminderRoutes, startReminderSystem } = require('./utils/reminderService.js');
+    const { router: birthdayRoutes, startBirthdaySystem } = require('./utils/birthdayService.js');
+    
+    app.use('/reminder', reminderRoutes);
+    console.log('✅ Reminder routes registered at /reminder');
+    
+    app.use('/birthday', birthdayRoutes);
+    console.log('✅ Birthday routes registered at /birthday');
+    
+    // List all registered routes for debugging
+    console.log('🔍 All registered routes:');
+    app._router.stack.forEach((middleware) => {
+        if (middleware.route) {
+            console.log(`  ${Object.keys(middleware.route.methods).join(', ').toUpperCase()} ${middleware.route.path}`);
+        } else if (middleware.name === 'router') {
+            console.log(`  Router middleware: ${middleware.regexp}`);
+            if (middleware.handle && middleware.handle.stack) {
+                middleware.handle.stack.forEach((route) => {
+                    if (route.route) {
+                        const methods = Object.keys(route.route.methods).join(', ').toUpperCase();
+                        console.log(`    ${methods} ${middleware.regexp.source.replace('\\/?(?=\\/|$)', '')}${route.route.path}`);
+                    }
+                });
+            }
         }
-    }
-);
+    });
+    
+} catch (routeError) {
+    console.error('❌ Error registering routes:', routeError);
+    console.error('❌ Stack trace:', routeError.stack);
+}
 
-// FIX 6: Add CSRF token endpoint
-app.get('/csrf-token', csrfProtection, (req, res) => {
-    res.json({ csrfToken: req.csrfToken() });
-});
-
-// Routing with specific rate limiters where needed
-app.use('/users', strictLimiter, userRoutes);
-app.use('/data', dataRoutes);
-app.use('/secure', strictLimiter, userPermissionRoutes);
-app.use('/mfa', strictLimiter, mfaRoutes);
-app.use('/webhooks', webhookRoutes);
-app.use('/service', serviceRoutes);
-app.use('/reminder', reminderRoutes);
-app.use('/birthday', birthdayRoutes);
-
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
     res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development'
+        routes: {
+            birthday: app._router.stack.some(layer => 
+                layer.regexp.source.includes('birthday')
+            ),
+            reminder: app._router.stack.some(layer => 
+                layer.regexp.source.includes('reminder')
+            )
+        }
     });
 });
 
 app.get('/', (req, res) => {
     res.json({
         message: "API is working",
-        version: "1.0.0",
-        timestamp: new Date().toISOString()
+        availableRoutes: [
+            'GET /health',
+            'GET /test',
+            'POST /birthday/add',
+            'GET /birthday/list',
+            'POST /reminder/add',
+            'GET /reminder/list'
+        ]
     });
 });
 
-// Configure URL shortener query parsing
-app.set('query parser', (str) => {
-    const result = new URLSearchParams(str);
-    const params = {};
-    for (const [key, value] of result) {
-        params[key] = value;
-    }
-    return params;
-});
-
-// FIX 7: Global error handlers
+// Error handling
 app.use((err, req, res, next) => {
-    console.error('Global error handler:', err);
-    
-    // Handle CSRF errors
-    if (err.code === 'EBADCSRFTOKEN') {
-        return res.status(403).json({
-            error: 'Invalid CSRF token',
-            code: 'CSRF_ERROR'
-        });
-    }
-    
-    // Handle validation errors
-    if (err.name === 'ValidationError') {
-        return res.status(400).json({
-            error: 'Validation failed',
-            details: err.details
-        });
-    }
-    
-    // Default error response
-    res.status(err.status || 500).json({
-        error: process.env.NODE_ENV === 'production' 
-            ? 'Internal server error' 
-            : err.message,
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    console.error('❌ Global error:', err);
+    res.status(500).json({
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
     });
 });
 
 // 404 handler
 app.use('*', (req, res) => {
+    console.log(`❌ 404 - Route not found: ${req.method} ${req.originalUrl}`);
     res.status(404).json({
         error: 'Route not found',
         path: req.originalUrl,
-        method: req.method
+        method: req.method,
+        availableRoutes: [
+            'GET /',
+            'GET /health',
+            'GET /test',
+            'POST /birthday/add',
+            'GET /birthday/list'
+        ]
     });
 });
 
-// FIX 8: Improved startup sequence with proper error handling
+// Startup function
 const startServer = async () => {
     try {
-        console.log('🚀 Starting server initialization...');
+        console.log('🚀 Starting server...');
         
         // Test database connection
         try {
@@ -326,81 +318,46 @@ const startServer = async () => {
             console.log('✅ Database connection successful');
         } catch (dbError) {
             console.error('❌ Database connection failed:', dbError.message);
-            throw new Error('Database connection required for startup');
+            // Don't exit, continue without DB for route testing
         }
         
-        // Start the server
+        // Start server
         const server = app.listen(PORT, () => {
             console.log(`🚀 Server running at http://localhost:${PORT}`);
-            console.log(`📅 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`⏰ Started at: ${new Date().toLocaleString()}`);
+            console.log(`📍 Test the API:`);
+            console.log(`   GET  http://localhost:${PORT}/`);
+            console.log(`   GET  http://localhost:${PORT}/health`);
+            console.log(`   POST http://localhost:${PORT}/birthday/add`);
         });
         
-        // FIX 9: Initialize both reminder and birthday systems
+        // Initialize services
         try {
-            console.log('🔄 Initializing background services...');
+            console.log('🔄 Starting background services...');
             
-            await Promise.allSettled([
-                startReminderSystem().catch(err => {
-                    console.error('❌ Reminder system failed to start:', err.message);
-                    throw err;
-                }),
-                startBirthdaySystem().catch(err => {
-                    console.error('❌ Birthday system failed to start:', err.message);
-                    throw err;
-                })
-            ]);
+            if (typeof startReminderSystem === 'function') {
+                await startReminderSystem();
+                console.log('✅ Reminder system started');
+            } else {
+                console.log('⚠️ Reminder system start function not available');
+            }
             
-            console.log('✅ Background services initialized');
+            if (typeof startBirthdaySystem === 'function') {
+                await startBirthdaySystem();
+                console.log('✅ Birthday system started');
+            } else {
+                console.log('⚠️ Birthday system start function not available');
+            }
             
         } catch (serviceError) {
-            console.error('⚠️ Some background services failed to start:', serviceError.message);
-            console.log('🔄 Server continues to run. Services will retry connection.');
+            console.error('❌ Service initialization error:', serviceError);
+            console.log('🔄 Server continues without background services');
         }
         
-        // Graceful shutdown handlers
-        const gracefulShutdown = async (signal) => {
-            console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
-            
-            server.close(async () => {
-                try {
-                    await pool.end();
-                    console.log('✅ Database connections closed');
-                    console.log('✅ Server shutdown complete');
-                    process.exit(0);
-                } catch (error) {
-                    console.error('❌ Error during shutdown:', error);
-                    process.exit(1);
-                }
-            });
-            
-            // Force shutdown after 30 seconds
-            setTimeout(() => {
-                console.error('❌ Forced shutdown after timeout');
-                process.exit(1);
-            }, 30000);
-        };
-        
-        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-        
     } catch (error) {
-        console.error("❌ Failed to initialize server:", error);
+        console.error("❌ Server startup failed:", error);
         process.exit(1);
     }
 };
-
-// FIX 10: Enhanced error handling for unhandled events
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-    // Don't exit immediately, log and continue
-});
-
-process.on('uncaughtException', (error) => {
-    console.error('🚨 Uncaught Exception:', error);
-    // For uncaught exceptions, it's safer to exit
-    process.exit(1);
-});
 
 // Start the server
 startServer();
