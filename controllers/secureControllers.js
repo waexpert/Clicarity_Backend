@@ -571,13 +571,13 @@ function generateDummyInsertQuery(fields, tableName, schemaName = 'public') {
     }
 
     // ONLY add dummy values for *_date and *_comment columns for NON-SYSTEM fields
-    if (!field.systemField) {
-      insertColumns.push(`"${field.name}_date"`);
-      insertValues.push('CURRENT_DATE');
+    // if (!field.systemField) {
+    //   insertColumns.push(`"${field.name}_date"`);
+    //   insertValues.push('CURRENT_DATE');
       
-      insertColumns.push(`"${field.name}_comment"`);
-      insertValues.push(`'dummy_comment_for_${field.name}'`);
-    }
+    //   insertColumns.push(`"${field.name}_comment"`);
+    //   insertValues.push(`'dummy_comment_for_${field.name}'`);
+    // }
   });
 
   const fullTableName = `"${schemaName}"."${tableName}"`;
