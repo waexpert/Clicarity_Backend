@@ -570,7 +570,7 @@ function generateDummyInsertQuery(fields, tableName, schemaName = 'public') {
       }
     }
 
-    // Add dummy values for *_date and *_comment columns for non-system fields
+    // ONLY add dummy values for *_date and *_comment columns for NON-SYSTEM fields
     if (!field.systemField) {
       insertColumns.push(`"${field.name}_date"`);
       insertValues.push('CURRENT_DATE');
