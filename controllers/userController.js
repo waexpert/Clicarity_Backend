@@ -127,11 +127,6 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
     columns.push(columnDef);
 
-    // Add *_date and *_comment columns for non-system fields
-    if (!field.systemField) {
-      columns.push(`"${field.name}_date" DATE`);
-      columns.push(`"${field.name}_comment" TEXT`);
-    }
   });
 
   const fullTableName = `"${schemaName}"."${tableName}"`;
