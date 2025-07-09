@@ -7,6 +7,107 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require('bcrypt');
 const { sendEmail } = require("../utils/emailService");
 
+// exports.registerUser = async (req, res) => {
+//   const { first_name, last_name, email, password, phone_number, country, currency, is_verified } = req.body;
+
+//   if (!email || !password || !first_name) {
+//     return res.status(400).json({ error: "Missing required fields" });
+//   }
+
+//   try {
+//     const userExists = await pool.query(queries.checkUser, [email, phone_number]);
+
+//     if (userExists.rows.length) {
+//       return res.status(400).json({ error: "Email or phone number already exists" });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+
+//     const result = await pool.query(queries.addUser, [
+//       first_name,
+//       last_name,
+//       email,
+//       hashedPassword,
+//       phone_number,
+//       country,
+//       currency,
+//       is_verified,
+//     ]);
+    
+//     if (!result || !result.rows || result.rows.length === 0) {
+//       return res.status(500).json({ error: "User inserted but data not returned." });
+//     }
+    
+//     const user = result.rows[0];
+//     // return res.status(201).json({ message: "User created successfully", user });
+
+//     sendEmail(email);
+//   sendJWTToken(user, 201, res);
+//   } catch (error) {
+//     console.error("Registration error:", error);
+//     return res.status(500).json({ error: "Internal Server Error" ,errorMessage:error });
+//   }
+// };
+
+// Helper function to generate random 8-digit number
+function generateRandom8Digit() {
+  return Math.floor(10000000 + Math.random() * 90000000);
+}
+
+// Helper function to create schema
+async function createUserSchema(schemaName) {
+  const createSchemaQuery = `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`;
+  await pool.query(createSchemaQuery);
+}
+
+// Helper function to create team member table with user data
+async function createTeamMemberTable(schemaName, userData) {
+  const teamMemberFields = [
+    { name: 'name', type: 'text', systemField: false },
+    { name: 'number', type: 'text', systemField: false },
+    { name: 'empid', type: 'text', systemField: false },
+    { name: 'department', type: 'text', systemField: false },
+    { name: 'manager_name', type: 'text', systemField: false },
+    { name: 'birthday', type: 'date', systemField: false }
+  ];
+
+  // Create the table
+  const createTableQuery = generateCreateTableQuery(teamMemberFields, 'team_member', true, schemaName);
+  await pool.query(createTableQuery);
+
+  // Insert user data into team member table
+  const userInsertQuery = generateUserTeamMemberData(schemaName, userData);
+  await pool.query(userInsertQuery);
+}
+
+// Helper function to generate user team member data
+function generateUserTeamMemberData(schemaName, userData) {
+  const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+  
+  const fullTableName = `"${schemaName}"."team_member"`;
+  
+  // Create full name from first_name and last_name
+  const fullName = `${userData.first_name} ${userData.last_name || ''}`.trim();
+  
+  const query = `
+    INSERT INTO ${fullTableName} (
+      "id", "us_id", "name", "number", "empid", "department", "manager_name", "birthday"
+    ) VALUES (
+      uuid_generate_v4(), 
+      'user_${userData.first_name.toLowerCase()}', 
+      '${fullName}', 
+      '${userData.phone_number || ''}', 
+      'EMP${Math.floor(1000 + Math.random() * 9000)}', 
+      'General', 
+      '${userData.first_name}', 
+      '${currentDate}'
+    )
+  `;
+  
+  return query;
+}
+
+// Updated registerUser function
 exports.registerUser = async (req, res) => {
   const { first_name, last_name, email, password, phone_number, country, currency, is_verified } = req.body;
 
@@ -22,7 +123,13 @@ exports.registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Generate schema name: username + random 8-digit number
+    const username = first_name.toLowerCase();
+    const random8Digit = generateRandom8Digit();
+    const schemaName = `${username}_${random8Digit}`;
 
+    // Create user with schema_name
     const result = await pool.query(queries.addUser, [
       first_name,
       last_name,
@@ -32,6 +139,7 @@ exports.registerUser = async (req, res) => {
       country,
       currency,
       is_verified,
+      schemaName  // Add schema_name to the insert query
     ]);
     
     if (!result || !result.rows || result.rows.length === 0) {
@@ -39,15 +147,29 @@ exports.registerUser = async (req, res) => {
     }
     
     const user = result.rows[0];
-    // return res.status(201).json({ message: "User created successfully", user });
+
+    // Create the user's schema
+    await createUserSchema(schemaName);
+    
+    // Create the team member table with user data
+    const userData = {
+      first_name,
+      last_name,
+      phone_number,
+      email
+    };
+    await createTeamMemberTable(schemaName, userData);
 
     sendEmail(email);
-  sendJWTToken(user, 201, res);
+    sendJWTToken(user, 201, res);
+    
   } catch (error) {
     console.error("Registration error:", error);
-    return res.status(500).json({ error: "Internal Server Error" ,errorMessage:error });
+    return res.status(500).json({ error: "Internal Server Error", errorMessage: error });
   }
 };
+
+
 
 exports.loginUser = async (req, res, next) => {
   try {

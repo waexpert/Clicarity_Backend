@@ -3,7 +3,7 @@ const getUserByEmail = "SELECT * FROM users WHERE email = $1";
 const checkEmailExists = "SELECT * FROM users WHERE email = $1";
 const checkPhoneExists = "SELECT * FROM users WHERE phone_number = $1";
 const checkUser = "SELECT * FROM users WHERE email = $1 OR phone_number = $2";
-const addUser = "INSERT INTO users (first_name,last_name,email,password,phone_number,country,currency,is_verified) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *";
+const addUser = "INSERT INTO users (first_name, last_name, email, password, phone_number, country, currency, is_verified, schema_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;";
 const updatePassword = "UPDATE users SET password = $1 WHERE id = $2";
 const updateApi = "UPDATE users SET api_calls = api_calls - 1 WHERE id = $1";
 
