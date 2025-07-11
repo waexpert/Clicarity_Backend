@@ -820,7 +820,7 @@ const sendReminderToQueue = async (reminderData) => {
             sender_name: reminderData.sender_name,
             sender_phone: reminderData.sender_phone,
             reminder_type: reminderData.reminder_type,
-            final_message: `Hi ${reminderData.sender_name},\n\n${reminderData.message}\n\nregards,${reminderData.recipient_name}`,
+            final_message: `Hi ${reminderData.sender_name},\n\n${reminderData.message}\n\nregards,\n${reminderData.recipient_name}`,
             timestamp: new Date().toISOString()
         };
 
