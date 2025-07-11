@@ -1,7 +1,6 @@
 const { default: axios } = require('axios');
 const { v4: uuidv4, v5: uuidv5 } = require('uuid');
 
-// In-memory storage for webhook data (use database in production)
 const webhookStorage = new Map();
 
 exports.generateWebhooks = async(req, res) => {
@@ -37,10 +36,6 @@ exports.recieveData = async(req, res) => {
         // Store the data using the key format
         const storageKey = `${ownerId}:${webhookId}`;
         webhookStorage.set(storageKey, webhookData);
-        
-        // No need to forward via HTTP call since we're storing in memory
-        // The frontend will fetch the data directly from the GET endpoint
-        
         res.status(200).json({
             message: "Data received and stored successfully",
             data: webhookData
