@@ -1039,9 +1039,15 @@ router.post("/add", async (req, res) => {
             recipient_name, 
             recipient_phone, 
             sender_name, 
-            sender_phone, 
+            // sender_phone, 
             reminder_type 
         } = req.body;
+        var sender_phone;
+        if(sender_name === "Wa Expert"){
+            sender_phone = "919867800451"
+        }else{
+            sender_phone = "919819100451"
+        }
         
         // Validate required fields
         const requiredFields = ['title', 'message', 'reminder_time', 'reminder_date', 'recipient_name', 'recipient_phone', 'sender_name', 'sender_phone'];
