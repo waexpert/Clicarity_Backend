@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 
 const bcrypt = require('bcrypt');
 const { sendEmail } = require("../utils/emailService");
+const { Scheduler } = require("aws-sdk");
 
 // exports.registerUser = async (req, res) => {
 //   const { first_name, last_name, email, password, phone_number, country, currency, is_verified } = req.body;
@@ -245,6 +246,7 @@ exports.registerUser = async (req, res) => {
       email
     };
     await createTeamMemberTable(schemaName, userData);
+    await pool.query(`CREATE TABLE ${schemaName}.reminders(reminder_id INT NOT NULL,name TEXT,phone TEXT UNIQUE)`);
 
     sendEmail(email);
     sendJWTToken(user, 201, res);
