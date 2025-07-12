@@ -1040,15 +1040,18 @@ router.post("/add", async (req, res) => {
             recipient_phone, 
             sender_name, 
             // sender_phone, 
-            reminder_type 
+            reminder_type,
+            schemaName 
         } = req.body;
         var sender_phone;
-        if(sender_name === "Wa Expert"){
-            sender_phone = "919867800451"
-        }else{
-            sender_phone = "919819100451"
-        }
-        
+        // if(sender_name === "Wa Expert"){
+        //     sender_phone = "919867800451"
+        // }else{
+        //     sender_phone = "919819100451"
+        // }
+
+        const result = await pool.query(`SELECT sender_phone from ${schemaName}.reminders where sender_name=${sender_name}`);
+        sender_phone = result.rows[0];
         // Validate required fields
         const requiredFields = ['title', 'message', 'reminder_time', 'reminder_date', 'recipient_name', 'recipient_phone', 'sender_name'];
         const missingFields = requiredFields.filter(field => !req.body[field]);

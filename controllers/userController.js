@@ -249,8 +249,9 @@ exports.registerUser = async (req, res) => {
     await pool.query(`
     CREATE TABLE ${schemaName}.reminders (
     reminder_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name TEXT,
-    phone TEXT UNIQUE
+    sender_name TEXT,
+    sender_phone TEXT UNIQUE,
+    us_id TEXT UNIQUE
   )
 `);
 
