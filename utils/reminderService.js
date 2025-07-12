@@ -32,41 +32,41 @@
 //     for (let i = 0; i < retries; i++) {
 //         try {
 //             console.log(`🔄 [Reminder] Attempting RabbitMQ connection (attempt ${i + 1}/${retries})...`);
-            
+
 //             rabbitConnection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
 //             rabbitChannel = await rabbitConnection.createChannel();
-            
+
 //             // Add connection error handlers
 //             rabbitConnection.on('error', (err) => {
 //                 if (!isShuttingDown) {
 //                     console.error('❌ [Reminder] RabbitMQ connection error:', err.message);
 //                 }
 //             });
-            
+
 //             rabbitConnection.on('close', () => {
 //                 if (!isShuttingDown) {
 //                     console.log('⚠️ [Reminder] RabbitMQ connection closed, attempting to reconnect...');
 //                     setTimeout(() => initRabbitMQ(), 5000);
 //                 }
 //             });
-            
+
 //             // Declare the reminder queue
 //             await rabbitChannel.assertQueue(REMINDER_QUEUE, { durable: true });
-            
+
 //             console.log("✅ [Reminder] RabbitMQ connected and queue declared");
-            
+
 //             // Start consuming messages from the queue
 //             consumeReminderQueue();
 //             return; 
-            
+
 //         } catch (error) {
 //             console.log(`❌ [Reminder] Connection attempt ${i + 1} failed:`, error.message);
-            
+
 //             if (i === retries - 1) {
 //                 console.error("❌ [Reminder] Failed to connect to RabbitMQ after all retries");
 //                 throw error;
 //             }
-            
+
 //             console.log(`⏳ [Reminder] Waiting ${delay}ms before retry...`);
 //             await new Promise(resolve => setTimeout(resolve, delay));
 //         }
@@ -84,14 +84,14 @@
 //         const now = moment().tz(process.env.TIMEZONE || 'UTC');
 //         const currentTime = now.format('HH:mm');
 //         const currentDate = now.format('YYYY-MM-DD');
-        
+
 //         // FIX: Create a new moment object for lastCheckTime
 //         const fiveMinutesAgo = moment().tz(process.env.TIMEZONE || 'UTC').subtract(5, 'minutes');
 //         const lastCheckTime = fiveMinutesAgo.format('HH:mm');
-        
+
 //         console.log(`⏰ [Reminder] Checking for reminders at: ${currentDate} ${currentTime}`);
 //         console.log(`📊 [Reminder] Time window: ${lastCheckTime} < time <= ${currentTime}`);
-        
+
 //         // Better query to prevent duplicate processing
 //         const query = `
 //             SELECT 
@@ -113,12 +113,12 @@
 //             AND status = 'pending'
 //             ORDER BY reminder_time ASC
 //         `;
-        
+
 //         const { rows } = await pool.query(query, [currentDate, lastCheckTime, currentTime]);
-        
+
 //         console.log(`📝 [Reminder] Found ${rows.length} due reminders`);
 //         return rows;
-        
+
 //     } catch (error) {
 //         console.error("❌ [Reminder] Error fetching due reminders:", error.message);
 //         return [];
@@ -176,22 +176,22 @@
 //                 try {
 //                     const reminderData = JSON.parse(msg.content.toString());
 //                     console.log(`📥 [Reminder] Processing from queue: ${reminderData.title}`);
-                    
+
 //                     // Update status first to prevent race conditions
 //                     await updateReminderStatus(reminderData.id, 'processing');
-                    
+
 //                     // Send to webhook
 //                     await sendReminderToWebhook(reminderData);
-                    
+
 //                     // Update reminder status to 'sent'
 //                     await updateReminderStatus(reminderData.id, 'sent');
-                    
+
 //                     // Acknowledge the message
 //                     rabbitChannel.ack(msg);
-                    
+
 //                 } catch (error) {
 //                     console.error("❌ [Reminder] Error processing message:", error.message);
-                    
+
 //                     // Reset status on failure
 //                     try {
 //                         const reminderData = JSON.parse(msg.content.toString());
@@ -199,7 +199,7 @@
 //                     } catch (parseError) {
 //                         console.error("❌ [Reminder] Could not parse message for status update:", parseError.message);
 //                     }
-                    
+
 //                     // Reject and requeue the message
 //                     rabbitChannel.nack(msg, false, true);
 //                 }
@@ -210,7 +210,7 @@
 
 //     } catch (error) {
 //         console.error("❌ [Reminder] Error setting up queue consumer:", error.message);
-        
+
 //         // Retry consumer setup after delay
 //         if (!isShuttingDown) {
 //             setTimeout(() => {
@@ -233,12 +233,12 @@
 //             "UPDATE reminders SET status = $1, sent_at = $2 WHERE id = $3 RETURNING id",
 //             [status, new Date(), reminderId]
 //         );
-        
+
 //         if (result.rowCount === 0) {
 //             console.warn(`⚠️ [Reminder] No reminder found with ID: ${reminderId}`);
 //             return false;
 //         }
-        
+
 //         console.log(`✅ [Reminder] Status updated to '${status}' for ID: ${reminderId}`);
 //         return true;
 //     } catch (error) {
@@ -290,9 +290,9 @@
 // const processDueReminders = async () => {
 //     try {
 //         console.log("⏰ [Reminder] Starting processing...");
-        
+
 //         const reminders = await getDueReminders();
-        
+
 //         if (reminders.length === 0) {
 //             console.log("😔 [Reminder] No due reminders found");
 //             return;
@@ -314,7 +314,7 @@
 //                 console.error(`❌ [Reminder] Error processing reminder ${reminder.id}:`, error.message);
 //                 errorCount++;
 //             }
-            
+
 //             // Small delay to prevent overwhelming the queue
 //             await new Promise(resolve => setTimeout(resolve, 100));
 //         }
@@ -366,11 +366,11 @@
 //             sender_phone, 
 //             reminder_type 
 //         } = req.body;
-        
+
 //         // Validate required fields
 //         const requiredFields = ['title', 'message', 'reminder_time', 'reminder_date', 'recipient_name', 'recipient_phone', 'sender_name', 'sender_phone'];
 //         const missingFields = requiredFields.filter(field => !req.body[field]);
-        
+
 //         if (missingFields.length > 0) {
 //             return res.status(400).json({ 
 //                 success: false,
@@ -505,7 +505,7 @@
 //     try {
 //         const { id } = req.params;
 //         const { status } = req.body;
-        
+
 //         const validStatuses = ['pending', 'sent', 'cancelled', 'processing', 'failed'];
 //         if (!validStatuses.includes(status)) {
 //             return res.status(400).json({ 
@@ -549,14 +549,14 @@
 
 //         const { id } = req.params;
 //         const result = await pool.query("DELETE FROM reminders WHERE id = $1 RETURNING id", [id]);
-        
+
 //         if (result.rowCount === 0) {
 //             return res.status(404).json({ 
 //                 success: false,
 //                 error: "Reminder not found" 
 //             });
 //         }
-        
+
 //         res.status(200).json({ 
 //             success: true,
 //             message: "Reminder deleted successfully" 
@@ -602,7 +602,7 @@
 // const gracefulShutdown = async () => {
 //     console.log("🛑 [Reminder] Shutting down gracefully...");
 //     isShuttingDown = true;
-    
+
 //     try {
 //         if (rabbitChannel) {
 //             await rabbitChannel.close();
@@ -612,7 +612,7 @@
 //             await rabbitConnection.close();
 //             console.log("✅ [Reminder] RabbitMQ connection closed");
 //         }
-        
+
 //         console.log("✅ [Reminder] System connections closed");
 //     } catch (error) {
 //         console.error("❌ [Reminder] Error during shutdown:", error.message);
@@ -638,10 +638,10 @@
 //     try {
 //         // Initialize RabbitMQ with retry logic
 //         await initRabbitMQ();
-        
+
 //         console.log("📅 [Reminder] Notification system started successfully!");
 //         console.log("⏰ [Reminder] Processing scheduled every 5 minutes");
-        
+
 //     } catch (error) {
 //         console.error("❌ [Reminder] Failed to start system:", error.message);
 //         throw error; // Let the main server handle this
@@ -660,10 +660,10 @@
 // if (require.main === module) {
 //     const express = require('express');
 //     const app = express();
-    
+
 //     app.use(express.json());
 //     app.use('/reminder', router);
-    
+
 //     startReminderSystem().then(() => {
 //         app.listen(3001, () => {
 //             console.log('🚀 [Reminder] System running on port 3001');
@@ -708,41 +708,41 @@ const initRabbitMQ = async (retries = 5, delay = 2000) => {
     for (let i = 0; i < retries; i++) {
         try {
             console.log(`🔄 [Reminder] Attempting RabbitMQ connection (attempt ${i + 1}/${retries})...`);
-            
+
             rabbitConnection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
             rabbitChannel = await rabbitConnection.createChannel();
-            
+
             // Add connection error handlers
             rabbitConnection.on('error', (err) => {
                 if (!isShuttingDown) {
                     console.error('❌ [Reminder] RabbitMQ connection error:', err.message);
                 }
             });
-            
+
             rabbitConnection.on('close', () => {
                 if (!isShuttingDown) {
                     console.log('⚠️ [Reminder] RabbitMQ connection closed, attempting to reconnect...');
                     setTimeout(() => initRabbitMQ(), 5000);
                 }
             });
-            
+
             // Declare the reminder queue
             await rabbitChannel.assertQueue(REMINDER_QUEUE, { durable: true });
-            
+
             console.log("✅ [Reminder] RabbitMQ connected and queue declared");
-            
+
             // Start consuming messages from the queue
             consumeReminderQueue();
-            return; 
-            
+            return;
+
         } catch (error) {
             console.log(`❌ [Reminder] Connection attempt ${i + 1} failed:`, error.message);
-            
+
             if (i === retries - 1) {
                 console.error("❌ [Reminder] Failed to connect to RabbitMQ after all retries");
                 throw error;
             }
-            
+
             console.log(`⏳ [Reminder] Waiting ${delay}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -760,14 +760,14 @@ const getDueReminders = async () => {
         const now = moment().utc();
         const currentTime = now.format('HH:mm');
         const currentDate = now.format('YYYY-MM-DD');
-        
+
         // Create a new moment object for lastCheckTime
         const fiveMinutesAgo = moment().utc().subtract(5, 'minutes');
         const lastCheckTime = fiveMinutesAgo.format('HH:mm');
-        
+
         console.log(`⏰ [Reminder] Checking for reminders at: ${currentDate} ${currentTime} UTC`);
         console.log(`📊 [Reminder] Time window: ${lastCheckTime} < time <= ${currentTime}`);
-        
+
         // Better query to prevent duplicate processing
         const query = `
             SELECT 
@@ -789,12 +789,12 @@ const getDueReminders = async () => {
             AND status = 'pending'
             ORDER BY reminder_time ASC
         `;
-        
+
         const { rows } = await pool.query(query, [currentDate, lastCheckTime, currentTime]);
-        
+
         console.log(`📝 [Reminder] Found ${rows.length} due reminders`);
         return rows;
-        
+
     } catch (error) {
         console.error("❌ [Reminder] Error fetching due reminders:", error.message);
         return [];
@@ -825,7 +825,7 @@ const sendReminderToQueue = async (reminderData) => {
         };
 
         await rabbitChannel.sendToQueue(
-            REMINDER_QUEUE, 
+            REMINDER_QUEUE,
             Buffer.from(JSON.stringify(message)),
             { persistent: true }
         );
@@ -852,22 +852,22 @@ const consumeReminderQueue = async () => {
                 try {
                     const reminderData = JSON.parse(msg.content.toString());
                     console.log(`📥 [Reminder] Processing from queue: ${reminderData.title}`);
-                    
+
                     // Update status first to prevent race conditions
                     await updateReminderStatus(reminderData.id, 'processing');
-                    
+
                     // Send to webhook
                     await sendReminderToWebhook(reminderData);
-                    
+
                     // Update reminder status to 'sent'
                     await updateReminderStatus(reminderData.id, 'sent');
-                    
+
                     // Acknowledge the message
                     rabbitChannel.ack(msg);
-                    
+
                 } catch (error) {
                     console.error("❌ [Reminder] Error processing message:", error.message);
-                    
+
                     // Reset status on failure
                     try {
                         const reminderData = JSON.parse(msg.content.toString());
@@ -875,7 +875,7 @@ const consumeReminderQueue = async () => {
                     } catch (parseError) {
                         console.error("❌ [Reminder] Could not parse message for status update:", parseError.message);
                     }
-                    
+
                     // Reject and requeue the message
                     rabbitChannel.nack(msg, false, true);
                 }
@@ -886,7 +886,7 @@ const consumeReminderQueue = async () => {
 
     } catch (error) {
         console.error("❌ [Reminder] Error setting up queue consumer:", error.message);
-        
+
         // Retry consumer setup after delay
         if (!isShuttingDown) {
             setTimeout(() => {
@@ -909,12 +909,12 @@ const updateReminderStatus = async (reminderId, status) => {
             "UPDATE reminders SET status = $1, sent_at = $2 WHERE id = $3 RETURNING id",
             [status, new Date(), reminderId]
         );
-        
+
         if (result.rowCount === 0) {
             console.warn(`⚠️ [Reminder] No reminder found with ID: ${reminderId}`);
             return false;
         }
-        
+
         console.log(`✅ [Reminder] Status updated to '${status}' for ID: ${reminderId}`);
         return true;
     } catch (error) {
@@ -956,7 +956,7 @@ const sendReminderToWebhook = async (reminderData) => {
         console.log(`🔗 [Reminder] Webhook Response Status: ${response.status}`);
 
     } catch (error) {
-        console.error(`❌ [Reminder] Error sending webhook for ${reminderData.title}:`, 
+        console.error(`❌ [Reminder] Error sending webhook for ${reminderData.title}:`,
             error.response ? error.response.data : error.message);
         throw error; // Re-throw to handle in queue consumer
     }
@@ -966,9 +966,9 @@ const sendReminderToWebhook = async (reminderData) => {
 const processDueReminders = async () => {
     try {
         console.log("⏰ [Reminder] Starting processing...");
-        
+
         const reminders = await getDueReminders();
-        
+
         if (reminders.length === 0) {
             console.log("😔 [Reminder] No due reminders found");
             return;
@@ -990,7 +990,7 @@ const processDueReminders = async () => {
                 console.error(`❌ [Reminder] Error processing reminder ${reminder.id}:`, error.message);
                 errorCount++;
             }
-            
+
             // Small delay to prevent overwhelming the queue
             await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -1006,17 +1006,17 @@ const processDueReminders = async () => {
 router.post("/process", async (req, res) => {
     try {
         await processDueReminders();
-        res.status(200).json({ 
+        res.status(200).json({
             success: true,
             message: "Reminder processing initiated successfully",
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error("[Reminder] Error in manual processing:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1025,39 +1025,44 @@ router.post("/process", async (req, res) => {
 router.post("/add", async (req, res) => {
     try {
         if (!pool) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 success: false,
-                error: "Database connection not available" 
+                error: "Database connection not available"
             });
         }
 
-        const { 
-            title, 
-            message, 
-            reminder_time, 
-            reminder_date, 
-            recipient_name, 
-            recipient_phone, 
-            sender_name, 
+        const {
+            title,
+            message,
+            reminder_time,
+            reminder_date,
+            recipient_name,
+            recipient_phone,
+            sender_name,
             // sender_phone, 
             reminder_type,
-            schemaName 
+            schemaName
         } = req.body;
         var sender_phone;
-        // if(sender_name === "Wa Expert"){
-        //     sender_phone = "919867800451"
-        // }else{
-        //     sender_phone = "919819100451"
-        // }
+        const result = await pool.query(
+            `SELECT sender_phone FROM ${schemaName}.reminders WHERE sender_name = $1 LIMIT 1`,
+            [sender_name]
+        );
+        sender_phone = result.rows[0]?.sender_phone || null;
 
-        const result = await pool.query(`SELECT sender_phone from ${schemaName}.reminders where sender_name="${sender_name}"`);
-        sender_phone = result.rows[0];
+        if (!sender_phone) {
+            return res.status(404).json({
+                success: false,
+                error: "Sender phone not found"
+            });
+        }
+
         // Validate required fields
         const requiredFields = ['title', 'message', 'reminder_time', 'reminder_date', 'recipient_name', 'recipient_phone', 'sender_name'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
-        
+
         if (missingFields.length > 0) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 success: false,
                 error: "Missing required fields",
                 missing: missingFields
@@ -1066,27 +1071,27 @@ router.post("/add", async (req, res) => {
 
         // Validate date format
         if (!moment(reminder_date, 'YYYY-MM-DD', true).isValid()) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 success: false,
-                error: "Invalid date format. Use YYYY-MM-DD" 
+                error: "Invalid date format. Use YYYY-MM-DD"
             });
         }
 
         // Validate time format
         if (!moment(reminder_time, 'HH:mm', true).isValid()) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 success: false,
-                error: "Invalid time format. Use HH:mm (24-hour format)" 
+                error: "Invalid time format. Use HH:mm (24-hour format)"
             });
         }
 
         // Convert IST time to UTC by subtracting 5:30
         const istDateTime = moment.tz(`${reminder_date} ${reminder_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata');
         const utcDateTime = istDateTime.utc();
-        
+
         const convertedTime = utcDateTime.format('HH:mm');
         const convertedDate = utcDateTime.format('YYYY-MM-DD');
-        
+
         console.log(`🕐 [Reminder] Original IST time: ${reminder_date} ${reminder_time}`);
         console.log(`🕐 [Reminder] Converted UTC time: ${convertedDate} ${convertedTime}`);
 
@@ -1097,7 +1102,7 @@ router.post("/add", async (req, res) => {
             [title, message, convertedTime, convertedDate, recipient_name, recipient_phone, sender_name, sender_phone, reminder_type || 'general', 'pending', new Date()]
         );
 
-        res.status(201).json({ 
+        res.status(201).json({
             success: true,
             message: "Reminder added successfully",
             original_time: `${reminder_date} ${reminder_time} IST`,
@@ -1105,10 +1110,10 @@ router.post("/add", async (req, res) => {
         });
     } catch (error) {
         console.error("[Reminder] Error adding reminder:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1117,9 +1122,9 @@ router.post("/add", async (req, res) => {
 router.get("/list", async (req, res) => {
     try {
         if (!pool) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 success: false,
-                error: "Database connection not available" 
+                error: "Database connection not available"
             });
         }
 
@@ -1131,10 +1136,10 @@ router.get("/list", async (req, res) => {
         });
     } catch (error) {
         console.error("[Reminder] Error fetching reminders:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1143,9 +1148,9 @@ router.get("/list", async (req, res) => {
 router.get("/today", async (req, res) => {
     try {
         if (!pool) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 success: false,
-                error: "Database connection not available" 
+                error: "Database connection not available"
             });
         }
 
@@ -1161,10 +1166,10 @@ router.get("/today", async (req, res) => {
         });
     } catch (error) {
         console.error("[Reminder] Error fetching today's reminders:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1173,9 +1178,9 @@ router.get("/today", async (req, res) => {
 router.get("/pending", async (req, res) => {
     try {
         if (!pool) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 success: false,
-                error: "Database connection not available" 
+                error: "Database connection not available"
             });
         }
 
@@ -1189,10 +1194,10 @@ router.get("/pending", async (req, res) => {
         });
     } catch (error) {
         console.error("[Reminder] Error fetching pending reminders:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1202,10 +1207,10 @@ router.patch("/:id/status", async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
-        
+
         const validStatuses = ['pending', 'sent', 'cancelled', 'processing', 'failed'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 success: false,
                 error: "Invalid status",
                 validStatuses: validStatuses
@@ -1214,22 +1219,22 @@ router.patch("/:id/status", async (req, res) => {
 
         const success = await updateReminderStatus(id, status);
         if (success) {
-            res.status(200).json({ 
+            res.status(200).json({
                 success: true,
-                message: "Reminder status updated successfully" 
+                message: "Reminder status updated successfully"
             });
         } else {
-            res.status(404).json({ 
+            res.status(404).json({
                 success: false,
-                error: "Reminder not found" 
+                error: "Reminder not found"
             });
         }
     } catch (error) {
         console.error("[Reminder] Error updating reminder status:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1238,32 +1243,32 @@ router.patch("/:id/status", async (req, res) => {
 router.delete("/:id", async (req, res) => {
     try {
         if (!pool) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 success: false,
-                error: "Database connection not available" 
+                error: "Database connection not available"
             });
         }
 
         const { id } = req.params;
         const result = await pool.query("DELETE FROM reminders WHERE id = $1 RETURNING id", [id]);
-        
+
         if (result.rowCount === 0) {
-            return res.status(404).json({ 
+            return res.status(404).json({
                 success: false,
-                error: "Reminder not found" 
+                error: "Reminder not found"
             });
         }
-        
-        res.status(200).json({ 
+
+        res.status(200).json({
             success: true,
-            message: "Reminder deleted successfully" 
+            message: "Reminder deleted successfully"
         });
     } catch (error) {
         console.error("[Reminder] Error deleting reminder:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1272,9 +1277,9 @@ router.delete("/:id", async (req, res) => {
 router.get("/queue/status", async (req, res) => {
     try {
         if (!rabbitChannel) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 success: false,
-                error: "RabbitMQ not connected" 
+                error: "RabbitMQ not connected"
             });
         }
 
@@ -1287,10 +1292,10 @@ router.get("/queue/status", async (req, res) => {
         });
     } catch (error) {
         console.error("[Reminder] Error checking queue status:", error.message);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: "Internal Server Error", 
-            message: error.message 
+            error: "Internal Server Error",
+            message: error.message
         });
     }
 });
@@ -1299,7 +1304,7 @@ router.get("/queue/status", async (req, res) => {
 const gracefulShutdown = async () => {
     console.log("🛑 [Reminder] Shutting down gracefully...");
     isShuttingDown = true;
-    
+
     try {
         if (rabbitChannel) {
             await rabbitChannel.close();
@@ -1309,7 +1314,7 @@ const gracefulShutdown = async () => {
             await rabbitConnection.close();
             console.log("✅ [Reminder] RabbitMQ connection closed");
         }
-        
+
         console.log("✅ [Reminder] System connections closed");
     } catch (error) {
         console.error("❌ [Reminder] Error during shutdown:", error.message);
@@ -1335,10 +1340,10 @@ const startReminderSystem = async () => {
     try {
         // Initialize RabbitMQ with retry logic
         await initRabbitMQ();
-        
+
         console.log("📅 [Reminder] Notification system started successfully!");
         console.log("⏰ [Reminder] Processing scheduled every 5 minutes");
-        
+
     } catch (error) {
         console.error("❌ [Reminder] Failed to start system:", error.message);
         throw error; // Let the main server handle this
@@ -1357,10 +1362,10 @@ module.exports = {
 if (require.main === module) {
     const express = require('express');
     const app = express();
-    
+
     app.use(express.json());
     app.use('/reminder', router);
-    
+
     startReminderSystem().then(() => {
         app.listen(3001, () => {
             console.log('🚀 [Reminder] System running on port 3001');
