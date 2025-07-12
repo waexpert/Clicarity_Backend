@@ -20,7 +20,7 @@ exports.getUsersInReminder = async (req,res)=>{
         const {schemaName} = req.query;
         const result = await pool.query(`SELECT * FROM ${schemaName}.reminders;`);
         res.status(200).json({
-            data:result.rows[0]
+            data:result.rows
         })
     }catch(error){
         console.error("Error",error);
