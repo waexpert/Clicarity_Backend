@@ -1,6 +1,6 @@
 const pool = require("../database/databaseConnection");
 const queries = require("../database/queries/userQueries")
-const {sendJWTToken} = require("../utils/jwtServices")
+const { sendJWTToken } = require("../utils/jwtServices")
 const jwt = require("jsonwebtoken");
 
 
@@ -34,11 +34,11 @@ const { Scheduler } = require("aws-sdk");
 //       currency,
 //       is_verified,
 //     ]);
-    
+
 //     if (!result || !result.rows || result.rows.length === 0) {
 //       return res.status(500).json({ error: "User inserted but data not returned." });
 //     }
-    
+
 //     const user = result.rows[0];
 //     // return res.status(201).json({ message: "User created successfully", user });
 
@@ -170,12 +170,12 @@ async function createTeamMemberTable(schemaName, userData) {
 // Helper function to generate user team member data
 function generateUserTeamMemberData(schemaName, userData) {
   const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
-  
+
   const fullTableName = `"${schemaName}"."team_member"`;
-  
+
   // Create full name from first_name and last_name
   const fullName = `${userData.first_name} ${userData.last_name || ''}`.trim();
-  
+
   const query = `
     INSERT INTO ${fullTableName} (
       "id", "us_id", "name", "number", "empid", "department", "manager_name", "birthday"
@@ -190,7 +190,7 @@ function generateUserTeamMemberData(schemaName, userData) {
       '${currentDate}'
     )
   `;
-  
+
   return query;
 }
 
@@ -210,7 +210,7 @@ exports.registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // Generate schema name: username + random 8-digit number
     const username = first_name.toLowerCase();
     const random8Digit = generateRandom8Digit();
@@ -228,16 +228,16 @@ exports.registerUser = async (req, res) => {
       is_verified,
       schemaName  // Add schema_name to the insert query
     ]);
-    
+
     if (!result || !result.rows || result.rows.length === 0) {
       return res.status(500).json({ error: "User inserted but data not returned." });
     }
-    
+
     const user = result.rows[0];
 
     // Create the user's schema
     await createUserSchema(schemaName);
-    
+
     // Create the team member table with user data
     const userData = {
       first_name,
@@ -246,11 +246,18 @@ exports.registerUser = async (req, res) => {
       email
     };
     await createTeamMemberTable(schemaName, userData);
-    await pool.query(`CREATE TABLE ${schemaName}.reminders(reminder_id INT NOT NULL,name TEXT,phone TEXT UNIQUE)`);
+    await pool.query(`
+    CREATE TABLE ${schemaName}.reminders (
+    reminder_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT,
+    phone TEXT UNIQUE
+  )
+`);
+
 
     sendEmail(email);
     sendJWTToken(user, 201, res);
-    
+
   } catch (error) {
     console.error("Registration error:", error);
     return res.status(500).json({ error: "Internal Server Error", errorMessage: error });
@@ -284,9 +291,9 @@ exports.loginUser = async (req, res, next) => {
   }
 };
 
-  
+
 // logout 
-exports.logout = async(req,res,next)=>{
+exports.logout = async (req, res, next) => {
   res.clearCookie('access_token');
   res.clearCookie('refresh_token');
   res.json({ success: true });
@@ -304,39 +311,39 @@ exports.logout = async(req,res,next)=>{
 // reset password
 
 // getUser Details
-exports.getUserDetails = async(req,res,next)=>{
-    const result = await pool.query(queries.getUserById, [req.body.user_id]);
-    const user = result.rows[0];
-    res.status(200).json({ success: true, user });
-    
+exports.getUserDetails = async (req, res, next) => {
+  const result = await pool.query(queries.getUserById, [req.body.user_id]);
+  const user = result.rows[0];
+  res.status(200).json({ success: true, user });
+
 }
 
 // update password
 exports.updatePassword = async (req, res) => {
-    const result = await pool.query(queries.getUserById, [req.user.id]);
-    const user = result.rows[0];
-  
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-  
-    const isPasswordMatched = await bcrypt.compare(req.body.oldPassword, user.password);
-    if (!isPasswordMatched) {
-      return res.status(400).json({ message: "Old password does not match" });
-    }
-  
-    if (req.body.newPassword !== req.body.confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" });
-    }
-  
-    const hashedPassword = await bcrypt.hash(req.body.newPassword, 10);
-    await pool.query(queries.updatePassword, [hashedPassword, req.user.id]);
-  
-    sendJWTToken(user, 200, res);
-  }
-  
+  const result = await pool.query(queries.getUserById, [req.user.id]);
+  const user = result.rows[0];
 
-  // refresh Route
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  const isPasswordMatched = await bcrypt.compare(req.body.oldPassword, user.password);
+  if (!isPasswordMatched) {
+    return res.status(400).json({ message: "Old password does not match" });
+  }
+
+  if (req.body.newPassword !== req.body.confirmPassword) {
+    return res.status(400).json({ message: "Passwords do not match" });
+  }
+
+  const hashedPassword = await bcrypt.hash(req.body.newPassword, 10);
+  await pool.query(queries.updatePassword, [hashedPassword, req.user.id]);
+
+  sendJWTToken(user, 200, res);
+}
+
+
+// refresh Route
 exports.refreshToken = (req, res) => {
   const token = req.cookies.refresh_token;
   if (!token) {
