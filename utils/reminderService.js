@@ -1049,7 +1049,8 @@ router.post("/add", async (req, res) => {
             [sender_name]
         );
         sender_phone = result.rows[0]?.sender_phone || null;
-
+        console.log(sender_phone);
+        console.log(result);
         if (!sender_phone) {
             return res.status(404).json({
                 success: false,
