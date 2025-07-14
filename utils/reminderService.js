@@ -1045,14 +1045,14 @@ router.post("/add", async (req, res) => {
         } = req.body;
         var sender_phone;
 
-        console.log("sender_name",sender_name);
+        // console.log("sender_name",sender_name);
         const result = await pool.query(
             `SELECT sender_phone FROM ${schemaName}.reminders WHERE sender_name = $1 LIMIT 1`,
             [sender_name]
         );
         sender_phone = result.rows[0]?.sender_phone || null;
-        console.log(sender_phone);
-        console.log(result);
+        // console.log(sender_phone);
+        // console.log(result);
         if (!sender_phone) {
             return res.status(404).json({
                 success: false,
