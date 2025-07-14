@@ -1044,6 +1044,8 @@ router.post("/add", async (req, res) => {
             schemaName
         } = req.body;
         var sender_phone;
+
+        console.log("sender_name",sender_name);
         const result = await pool.query(
             `SELECT sender_phone FROM ${schemaName}.reminders WHERE sender_name = $1 LIMIT 1`,
             [sender_name]
