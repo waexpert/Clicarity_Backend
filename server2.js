@@ -13,6 +13,13 @@ const mfaRoutes = require('./routes/mfaRoutes.js')
 const dataRoutes = require('./routes/dataRoutes.js')
 const webhookRoutes = require('./routes/webhookRoutes.js')
 const serviceRoutes = require('./routes/serviceRoutes.js')
+const { 
+    router: paymentReminderRoutes, 
+    startReminderSystem: startPaymentReminderSystem, 
+    processDueReminders: processPaymentReminders,
+    processOverdueReminders,
+    gracefulShutdown: shutdownPaymentReminders
+} = require('./utils/paymentReminder.js')
 const {router:reminderRoutes , startReminderSystem,processDueReminders } = require('./utils/reminderService.js')
 const {router:birthdayRoutes,startBirthdaySystem,processTodaysBirthdays} = require('./utils/birthdayService.js')
 const bodyParser = require("body-parser");
@@ -35,7 +42,7 @@ app.get('/getVendors',async(req,res)=>{
 // CORS configuration
 const corsOptions = {
     origin: ['http://localhost:5173','https://click.wa.expert'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
     credentials: true,
 };
 app.use(cors(corsOptions));
@@ -56,7 +63,7 @@ app.use('/webhooks',webhookRoutes);
 app.use('/service',serviceRoutes);
 app.use('/reminder',reminderRoutes);
 app.use('/birthday',birthdayRoutes);
-
+app.use('/payment-reminders', paymentReminderRoutes);
 app.get('/', (req, res) => {
     res.send("API is working");
 });
@@ -85,6 +92,9 @@ const startServer = async () => {
             startBirthdaySystem();
             processTodaysBirthdays();
             processDueReminders();
+
+            startPaymentReminderSystem();
+            processPaymentReminders();
         });
         
         // Connect to RabbitMQ first before processing tasks
