@@ -19,7 +19,7 @@ const {
     processDueReminders: processPaymentReminders,
     processOverdueReminders,
     gracefulShutdown: shutdownPaymentReminders
-} = require('./utils/paymentReminder.js')
+} = require('./utils/paymentService.js')
 const {router:reminderRoutes , startReminderSystem,processDueReminders } = require('./utils/reminderService.js')
 const {router:birthdayRoutes,startBirthdaySystem,processTodaysBirthdays} = require('./utils/birthdayService.js')
 const bodyParser = require("body-parser");
