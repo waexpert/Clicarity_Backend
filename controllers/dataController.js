@@ -117,7 +117,7 @@ exports.getAllData = async (req, res) => {
 
 
 exports.updateRecordWithTimeStamp = async (req, res) => {
-  const { schemaName, tableName, recordId, columnName,comment:value, ownerId,call} = req.body;
+  const { schemaName, tableName, recordId, columnName, comment: value, ownerId, call } = req.body;
   console.log(req.query)
 
   // Validate schema name
@@ -135,6 +135,28 @@ exports.updateRecordWithTimeStamp = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Record not found' });
     }
+
+    if (call) {
+      try {
+        const result = await pool.query(
+          queries.incrementByOne({ schemaName, tableName, recordId, columnName: "times_called" })
+        );
+
+        res.status(200).json({
+          message: "Updated successfully",
+          data: result.rows[0] || null
+        });
+      } catch (e) {
+        console.error("Error updating:", e.message);
+        res.status(500).json({
+          message: "Updating failed",
+          error: e.message
+        });
+      }
+    }
+
+
+
 
     // Step 2: Extract previous value safely
     const previousValue = result.rows[0][columnName] || '';
