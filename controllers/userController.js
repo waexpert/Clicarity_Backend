@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require('bcrypt');
 const { sendEmail } = require("../utils/emailService");
 const { Scheduler } = require("aws-sdk");
+const { paymentReminderSetup } = require("./referenceController");
 
 // exports.registerUser = async (req, res) => {
 //   const { first_name, last_name, email, password, phone_number, country, currency, is_verified } = req.body;
@@ -284,6 +285,7 @@ exports.loginUser = async (req, res, next) => {
     if (!isPasswordMatched) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
+    paymentReminderSetup();
     sendEmail(email);
     sendJWTToken(user, 200, res);
   } catch (error) {

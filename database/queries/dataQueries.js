@@ -206,7 +206,7 @@ async function getAllData(schemaName,tableName){
 
 async function getRecordById(schemaName,tableName,recordId) {
   return `
-  Select * From '${schemaName}.${tableName};
+  Select * From "${schemaName}"."${tableName}" Where recordId="${recordId}";
   `;
 }
 
@@ -236,6 +236,16 @@ function updateMultipleColumns({ schemaName, tableName, recordId, columnValuePai
 }
 
 
+function incrementByOne({ schemaName, tableName, recordId, columnName }) {
+  return `
+    UPDATE "${schemaName}"."${tableName}"
+    SET "${columnName}" = "${columnName}" + 1
+    WHERE id = '${recordId}'
+    RETURNING *;
+  `;
+}
+
+
 
 
 
@@ -248,5 +258,6 @@ module.exports = {
   toPostgresDate,
   getAllData,
   getRecordById,
-  updateMultipleColumns
+  updateMultipleColumns,
+  incrementByOne
 };

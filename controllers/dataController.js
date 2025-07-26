@@ -223,3 +223,28 @@ exports.updateMultipleColumns = async (req, res) => {
   }
 };
 
+
+exports.incrementByOne = async (req, res) => {
+  const { schemaName, tableName, recordId, columnName } = req.query;
+
+  if (!schemaName || !tableName || !recordId || !columnName) {
+    return res.status(400).json({ message: "Missing required parameters." });
+  }
+
+  try {
+    const result = await pool.query(
+      queries.incrementByOne({ schemaName, tableName, recordId, columnName })
+    );
+
+    res.status(200).json({
+      message: "Updated successfully",
+      data: result.rows[0] || null
+    });
+  } catch (e) {
+    console.error("Error updating:", e.message);
+    res.status(500).json({
+      message: "Updating failed",
+      error: e.message
+    });
+  }
+};

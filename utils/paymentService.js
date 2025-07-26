@@ -4,12 +4,13 @@ const express = require("express");
 const cron = require("node-cron");
 const axios = require("axios");
 const moment = require("moment-timezone");
+const {getPaymentReminderQuery} = require("../database/queries/referenceQueries")
 
 let pool;
 try {
     pool = require('../database/databaseConnection');
 } catch (error) {
-    console.error('❌ [Reminder] Failed to import database connection:', error.message);
+    console.error('[Reminder] Failed to import database connection:', error.message);
 }
 
 const router = express.Router();
@@ -28,7 +29,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://webhooks.wa.expert/webho
 const initRabbitMQ = async (retries = 5, delay = 2000) => {
     for (let i = 0; i < retries; i++) {
         try {
-            console.log(`🔄 [Reminder] Attempting RabbitMQ connection (attempt ${i + 1}/${retries})...`);
+            console.log(`[Reminder] Attempting RabbitMQ connection (attempt ${i + 1}/${retries})...`);
 
             rabbitConnection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
             rabbitChannel = await rabbitConnection.createChannel();
@@ -36,13 +37,13 @@ const initRabbitMQ = async (retries = 5, delay = 2000) => {
             // Add connection error handlers
             rabbitConnection.on('error', (err) => {
                 if (!isShuttingDown) {
-                    console.error('❌ [Payment Reminder] RabbitMQ connection error:', err.message);
+                    console.error('[Payment Reminder] RabbitMQ connection error:', err.message);
                 }
             });
 
             rabbitConnection.on('close', () => {
                 if (!isShuttingDown) {
-                    console.log('⚠️ [Payment Reminder] RabbitMQ connection closed, attempting to reconnect...');
+                    console.log('[Payment Reminder] RabbitMQ connection closed, attempting to reconnect...');
                     setTimeout(() => initRabbitMQ(), 5000);
                 }
             });
@@ -51,7 +52,7 @@ const initRabbitMQ = async (retries = 5, delay = 2000) => {
             await rabbitChannel.assertQueue(REMINDER_QUEUE, { durable: true });
             await rabbitChannel.assertQueue(OVERDUE_QUEUE, { durable: true });
 
-            console.log("✅ [Payment Reminder] RabbitMQ connected and queues declared");
+            console.log("[Payment Reminder] RabbitMQ connected and queues declared");
 
             // Start consuming messages from both queues
             consumeReminderQueue();
@@ -59,14 +60,14 @@ const initRabbitMQ = async (retries = 5, delay = 2000) => {
             return;
 
         } catch (error) {
-            console.log(`❌ [Payment Reminder] Connection attempt ${i + 1} failed:`, error.message);
+            console.log(`[Payment Reminder] Connection attempt ${i + 1} failed:`, error.message);
 
             if (i === retries - 1) {
-                console.error("❌ [Payment Reminder] Failed to connect to RabbitMQ after all retries");
+                console.error("[Payment Reminder] Failed to connect to RabbitMQ after all retries");
                 throw error;
             }
 
-            console.log(`⏳ [Reminder] Waiting ${delay}ms before retry...`);
+            console.log(`[Reminder] Waiting ${delay}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
@@ -80,7 +81,7 @@ const getDueReminders = async () => {
         }
 
         const currentDate = moment().format('YYYY-MM-DD');
-        console.log(`⏰ [Reminder] Checking for reminders on: ${currentDate}`);
+        console.log(`[Reminder] Checking for reminders on: ${currentDate}`);
 
         const query = `
             SELECT 
@@ -95,11 +96,11 @@ const getDueReminders = async () => {
         `;
 
         const { rows } = await pool.query(query, [currentDate]);
-        console.log(`📝 [Reminder] Found ${rows.length} due reminders`);
+        console.log(`[Reminder] Found ${rows.length} due reminders`);
         return rows;
 
     } catch (error) {
-        console.error("❌ [Reminder] Error fetching due reminders:", error.message);
+        console.error("[Reminder] Error fetching due reminders:", error.message);
         return [];
     }
 };
@@ -112,7 +113,7 @@ const getOverdueReminders = async () => {
         }
 
         const currentDate = moment().format('YYYY-MM-DD');
-        console.log(`⏰ [Overdue] Checking for overdue reminders on: ${currentDate}`);
+        console.log(`[Overdue] Checking for overdue reminders on: ${currentDate}`);
 
         // Get records where due_date has passed, type is 'original', and status is 'pending'
         // And either it's the first overdue reminder or 15 days have passed since last overdue reminder
@@ -137,11 +138,11 @@ const getOverdueReminders = async () => {
         const fifteenDaysAgo = moment().subtract(15, 'days').format('YYYY-MM-DD');
 
         const { rows } = await pool.query(query, [currentDate, fifteenDaysAgo]);
-        console.log(`📝 [Overdue] Found ${rows.length} overdue reminders`);
+        console.log(`[Overdue] Found ${rows.length} overdue reminders`);
         return rows;
 
     } catch (error) {
-        console.error("❌ [Overdue] Error fetching overdue reminders:", error.message);
+        console.error("[Overdue] Error fetching overdue reminders:", error.message);
         return [];
     }
 };
@@ -150,16 +151,28 @@ const getOverdueReminders = async () => {
 const sendReminderToQueue = async (reminderData, queueName = REMINDER_QUEUE) => {
     try {
         if (!rabbitChannel) {
-            console.error("❌ [Reminder] RabbitMQ channel not available");
+            console.error("[Reminder] RabbitMQ channel not available");
             return false;
         }
+        const paymentSetup = await pool.query(getPaymentReminderQuery(), [reminderData.owner_id]);
+        
+        // Fix: Check if payment setup exists
+        if (!paymentSetup.rows || paymentSetup.rows.length === 0) {
+            console.error("[Reminder] No payment setup found for owner:", reminderData.owner_id);
+            return false;
+        }
+
+        // Fix: Proper date calculation
+        const dueDate = new Date(reminderData.due_date);
+        const paymentTermsDays = paymentSetup.rows[0].payment_terms;
+        const calculatedDueDate = new Date(dueDate.getTime() + (paymentTermsDays * 24 * 60 * 60 * 1000));
 
         const message = {
             id: reminderData.id,
             from_company: reminderData.from_company,
             send_to_company: reminderData.send_to_company,
             send_to_phone: reminderData.send_to_phone,
-            due_date: reminderData.due_date,
+            due_date: calculatedDueDate.toISOString(),
             send_to_name: reminderData.send_to_name,
             amount: reminderData.amount,
             type: reminderData.type,
@@ -167,7 +180,7 @@ const sendReminderToQueue = async (reminderData, queueName = REMINDER_QUEUE) => 
             payment_method: reminderData.payment_method,
             us_id: reminderData.us_id,
             owner_id: reminderData.owner_id,
-            final_message: `Hi ${reminderData.send_to_name},\n\nThis is a payment reminder for invoice from ${reminderData.from_company}.\nAmount: ${reminderData.amount}\nDue Date: ${reminderData.due_date}\nPayment Method: ${reminderData.payment_method}\n\nPlease make the payment at your earliest convenience.\n\nRegards,\n${reminderData.from_company}`,
+            final_message: `Hi ${reminderData.send_to_name},\n\nThis is a payment reminder for invoice from ${reminderData.from_company}.\nAmount: ${reminderData.amount}\nDue Date: ${dueDate.toLocaleDateString()}\nPayment Method: ${reminderData.payment_method}\n\nPlease make the payment at your earliest convenience.\n\nRegards,\n${reminderData.from_company}`,
             timestamp: new Date().toISOString()
         };
 
@@ -177,11 +190,11 @@ const sendReminderToQueue = async (reminderData, queueName = REMINDER_QUEUE) => 
             { persistent: true }
         );
 
-        console.log(`📤 [Reminder] Sent to queue ${queueName}: Invoice ${reminderData.us_id}`);
+        console.log(`[Reminder] Sent to queue ${queueName}: Invoice ${reminderData.us_id}`);
         return true;
 
     } catch (error) {
-        console.error("❌ [Reminder] Error sending to queue:", error.message);
+        console.error("[Reminder] Error sending to queue:", error.message);
         return false;
     }
 };
@@ -190,7 +203,7 @@ const sendReminderToQueue = async (reminderData, queueName = REMINDER_QUEUE) => 
 const consumeReminderQueue = async () => {
     try {
         if (!rabbitChannel) {
-            console.error("❌ [Reminder] RabbitMQ channel not available for consuming");
+            console.error("[Reminder] RabbitMQ channel not available for consuming");
             return;
         }
 
@@ -198,7 +211,7 @@ const consumeReminderQueue = async () => {
             if (msg !== null) {
                 try {
                     const reminderData = JSON.parse(msg.content.toString());
-                    console.log(`📥 [Reminder] Processing from queue: Invoice ${reminderData.us_id}`);
+                    console.log(`[Reminder] Processing from queue: Invoice ${reminderData.us_id}`);
 
                     // Update status first to prevent race conditions
                     await updateReminderStatus(reminderData.id, 'processing');
@@ -213,14 +226,14 @@ const consumeReminderQueue = async () => {
                     rabbitChannel.ack(msg);
 
                 } catch (error) {
-                    console.error("❌ [Reminder] Error processing message:", error.message);
+                    console.error("[Reminder] Error processing message:", error.message);
 
                     // Reset status on failure
                     try {
                         const reminderData = JSON.parse(msg.content.toString());
                         await updateReminderStatus(reminderData.id, 'failed');
                     } catch (parseError) {
-                        console.error("❌ [Reminder] Could not parse message for status update:", parseError.message);
+                        console.error("[Reminder] Could not parse message for status update:", parseError.message);
                     }
 
                     // Reject and requeue the message
@@ -229,15 +242,15 @@ const consumeReminderQueue = async () => {
             }
         });
 
-        console.log("🔄 [Reminder] Regular reminder queue consumer started");
+        console.log("[Reminder] Regular reminder queue consumer started");
 
     } catch (error) {
-        console.error("❌ [Reminder] Error setting up queue consumer:", error.message);
+        console.error("[Reminder] Error setting up queue consumer:", error.message);
 
         // Retry consumer setup after delay
         if (!isShuttingDown) {
             setTimeout(() => {
-                console.log("🔄 [Reminder] Retrying consumer setup...");
+                console.log("[Reminder] Retrying consumer setup...");
                 consumeReminderQueue();
             }, 5000);
         }
@@ -248,7 +261,7 @@ const consumeReminderQueue = async () => {
 const consumeOverdueQueue = async () => {
     try {
         if (!rabbitChannel) {
-            console.error("❌ [Overdue] RabbitMQ channel not available for consuming");
+            console.error("[Overdue] RabbitMQ channel not available for consuming");
             return;
         }
 
@@ -256,7 +269,7 @@ const consumeOverdueQueue = async () => {
             if (msg !== null) {
                 try {
                     const reminderData = JSON.parse(msg.content.toString());
-                    console.log(`📥 [Overdue] Processing from queue: Invoice ${reminderData.us_id}`);
+                    console.log(`[Overdue] Processing from queue: Invoice ${reminderData.us_id}`);
 
                     // Update status first to prevent race conditions
                     await updateReminderStatus(reminderData.id, 'processing');
@@ -271,14 +284,14 @@ const consumeOverdueQueue = async () => {
                     rabbitChannel.ack(msg);
 
                 } catch (error) {
-                    console.error("❌ [Overdue] Error processing message:", error.message);
+                    console.error("[Overdue] Error processing message:", error.message);
 
                     // Reset status on failure
                     try {
                         const reminderData = JSON.parse(msg.content.toString());
                         await updateReminderStatus(reminderData.id, 'failed');
                     } catch (parseError) {
-                        console.error("❌ [Overdue] Could not parse message for status update:", parseError.message);
+                        console.error("[Overdue] Could not parse message for status update:", parseError.message);
                     }
 
                     // Reject and requeue the message
@@ -287,15 +300,15 @@ const consumeOverdueQueue = async () => {
             }
         });
 
-        console.log("🔄 [Overdue] Overdue reminder queue consumer started");
+        console.log("[Overdue] Overdue reminder queue consumer started");
 
     } catch (error) {
-        console.error("❌ [Overdue] Error setting up overdue queue consumer:", error.message);
+        console.error("[Overdue] Error setting up overdue queue consumer:", error.message);
 
         // Retry consumer setup after delay
         if (!isShuttingDown) {
             setTimeout(() => {
-                console.log("🔄 [Overdue] Retrying overdue consumer setup...");
+                console.log("[Overdue] Retrying overdue consumer setup...");
                 consumeOverdueQueue();
             }, 5000);
         }
@@ -306,7 +319,7 @@ const consumeOverdueQueue = async () => {
 const updateReminderStatus = async (reminderId, status) => {
     try {
         if (!pool) {
-            console.error('❌ [Reminder] Database connection not available for status update');
+            console.error('[Reminder] Database connection not available for status update');
             return false;
         }
 
@@ -316,14 +329,14 @@ const updateReminderStatus = async (reminderId, status) => {
         );
 
         if (result.rowCount === 0) {
-            console.warn(`⚠️ [Reminder] No reminder found with ID: ${reminderId}`);
+            console.warn(`[Reminder] No reminder found with ID: ${reminderId}`);
             return false;
         }
 
-        console.log(`✅ [Reminder] Status updated to '${status}' for ID: ${reminderId}`);
+        console.log(`[Reminder] Status updated to '${status}' for ID: ${reminderId}`);
         return true;
     } catch (error) {
-        console.error(`❌ [Reminder] Error updating status:`, error.message);
+        console.error(`[Reminder] Error updating status:`, error.message);
         return false;
     }
 };
@@ -332,7 +345,7 @@ const updateReminderStatus = async (reminderId, status) => {
 const updateOverdueReminderStatus = async (reminderId, status) => {
     try {
         if (!pool) {
-            console.error('❌ [Overdue] Database connection not available for status update');
+            console.error('[Overdue] Database connection not available for status update');
             return false;
         }
 
@@ -343,14 +356,14 @@ const updateOverdueReminderStatus = async (reminderId, status) => {
         );
 
         if (result.rowCount === 0) {
-            console.warn(`⚠️ [Overdue] No reminder found with ID: ${reminderId}`);
+            console.warn(`[Overdue] No reminder found with ID: ${reminderId}`);
             return false;
         }
 
-        console.log(`✅ [Overdue] Status updated to '${status}' and last_overdue_reminder_date set for ID: ${reminderId}`);
+        console.log(`[Overdue] Status updated to '${status}' and last_overdue_reminder_date set for ID: ${reminderId}`);
         return true;
     } catch (error) {
-        console.error(`❌ [Overdue] Error updating status:`, error.message);
+        console.error(`[Overdue] Error updating status:`, error.message);
         return false;
     }
 };
@@ -387,11 +400,11 @@ const sendReminderToWebhook = async (reminderData) => {
             timeout: 10000
         });
 
-        console.log(`✅ [Reminder] Sent to webhook: Invoice ${reminderData.us_id}`);
-        console.log(`🔗 [Reminder] Webhook Response Status: ${response.status}`);
+        console.log(`[Reminder] Sent to webhook: Invoice ${reminderData.us_id}`);
+        console.log(`[Reminder] Webhook Response Status: ${response.status}`);
 
     } catch (error) {
-        console.error(`❌ [Reminder] Error sending webhook for Invoice ${reminderData.us_id}:`,
+        console.error(`[Reminder] Error sending webhook for Invoice ${reminderData.us_id}:`,
             error.response ? error.response.data : error.message);
         throw error; // Re-throw to handle in queue consumer
     }
@@ -431,11 +444,11 @@ const sendOverdueReminderToWebhook = async (reminderData) => {
             timeout: 10000
         });
 
-        console.log(`✅ [Overdue] Sent to webhook: Invoice ${reminderData.us_id}`);
-        console.log(`🔗 [Overdue] Webhook Response Status: ${response.status}`);
+        console.log(`[Overdue] Sent to webhook: Invoice ${reminderData.us_id}`);
+        console.log(`[Overdue] Webhook Response Status: ${response.status}`);
 
     } catch (error) {
-        console.error(`❌ [Overdue] Error sending webhook for Invoice ${reminderData.us_id}:`,
+        console.error(`[Overdue] Error sending webhook for Invoice ${reminderData.us_id}:`,
             error.response ? error.response.data : error.message);
         throw error; // Re-throw to handle in queue consumer
     }
@@ -444,12 +457,12 @@ const sendOverdueReminderToWebhook = async (reminderData) => {
 // Enhanced reminder processing
 const processDueReminders = async () => {
     try {
-        console.log("⏰ [Reminder] Starting regular reminder processing...");
+        console.log("[Reminder] Starting regular reminder processing...");
 
         const reminders = await getDueReminders();
 
         if (reminders.length === 0) {
-            console.log("😔 [Reminder] No due reminders found");
+            console.log("[Reminder] No due reminders found");
             return;
         }
 
@@ -466,7 +479,7 @@ const processDueReminders = async () => {
                     errorCount++;
                 }
             } catch (error) {
-                console.error(`❌ [Reminder] Error processing reminder ${reminder.id}:`, error.message);
+                console.error(`[Reminder] Error processing reminder ${reminder.id}:`, error.message);
                 errorCount++;
             }
 
@@ -474,22 +487,22 @@ const processDueReminders = async () => {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        console.log(`⏰ [Reminder] Regular processing completed: ${successCount} sent, ${errorCount} failed`);
+        console.log(`[Reminder] Regular processing completed: ${successCount} sent, ${errorCount} failed`);
 
     } catch (error) {
-        console.error("❌ [Reminder] Error processing reminders:", error.message);
+        console.error("[Reminder] Error processing reminders:", error.message);
     }
 };
 
 // Process overdue reminders
 const processOverdueReminders = async () => {
     try {
-        console.log("⏰ [Overdue] Starting overdue reminder processing...");
+        console.log("[Overdue] Starting overdue reminder processing...");
 
         const reminders = await getOverdueReminders();
 
         if (reminders.length === 0) {
-            console.log("😔 [Overdue] No overdue reminders found");
+            console.log("[Overdue] No overdue reminders found");
             return;
         }
 
@@ -506,7 +519,7 @@ const processOverdueReminders = async () => {
                     errorCount++;
                 }
             } catch (error) {
-                console.error(`❌ [Overdue] Error processing overdue reminder ${reminder.id}:`, error.message);
+                console.error(`[Overdue] Error processing overdue reminder ${reminder.id}:`, error.message);
                 errorCount++;
             }
 
@@ -514,10 +527,10 @@ const processOverdueReminders = async () => {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        console.log(`⏰ [Overdue] Overdue processing completed: ${successCount} sent, ${errorCount} failed`);
+        console.log(`[Overdue] Overdue processing completed: ${successCount} sent, ${errorCount} failed`);
 
     } catch (error) {
-        console.error("❌ [Overdue] Error processing overdue reminders:", error.message);
+        console.error("[Overdue] Error processing overdue reminders:", error.message);
     }
 };
 
@@ -648,7 +661,7 @@ router.post("/add", async (req, res) => {
             payment_method,
             us_id,
             owner_id,
-            number_of_reminders = 0, // Changed default to 0
+            number_of_reminders = 0, 
             days_diff = []
         } = req.body;
 
@@ -702,7 +715,7 @@ router.post("/add", async (req, res) => {
             days_before_due: 0
         });
 
-        console.log(`✅ [Reminder] Created original reminder for ${us_id} on ${due_date} (due date itself)`);
+        console.log(`[Reminder] Created original reminder for ${us_id} on ${due_date} (due date itself)`);
 
         // 2. Create duplicate records for each days_diff value
         for (let i = 0; i < number_of_reminders; i++) {
@@ -726,7 +739,7 @@ router.post("/add", async (req, res) => {
                 days_before_due: days_diff[i]
             });
 
-            console.log(`✅ [Reminder] Created duplicate reminder for ${us_id} on ${reminderDate} (${days_diff[i]} days before due)`);
+            console.log(`[Reminder] Created duplicate reminder for ${us_id} on ${reminderDate} (${days_diff[i]} days before due)`);
         }
 
         res.status(201).json({
@@ -776,7 +789,7 @@ router.patch("/mark-paid/:us_id", async (req, res) => {
             });
         }
 
-        console.log(`✅ [Payment] Marked ${result.rowCount} reminders as paid for us_id: ${us_id}`);
+        console.log(`[Payment] Marked ${result.rowCount} reminders as paid for us_id: ${us_id}`);
 
         res.status(200).json({
             success: true,
@@ -989,46 +1002,46 @@ router.get("/queue/status", async (req, res) => {
 
 // Graceful shutdown
 const gracefulShutdown = async () => {
-    console.log("🛑 [Reminder] Shutting down gracefully...");
+    console.log("[Reminder] Shutting down gracefully...");
     isShuttingDown = true;
 
     try {
         if (rabbitChannel) {
             await rabbitChannel.close();
-            console.log("✅ [Reminder] RabbitMQ channel closed");
+            console.log("[Reminder] RabbitMQ channel closed");
         }
         if (rabbitConnection) {
             await rabbitConnection.close();
-            console.log("✅ [Reminder] RabbitMQ connection closed");
+            console.log("[Reminder] RabbitMQ connection closed");
         }
 
-        console.log("✅ [Reminder] System connections closed");
+        console.log("[Reminder] System connections closed");
     } catch (error) {
-        console.error("❌ [Reminder] Error during shutdown:", error.message);
+        console.error("[Reminder] Error during shutdown:", error.message);
     }
 };
 
 // Schedule regular reminder processing - runs every 30 minutes
 cron.schedule("*/30 * * * *", async () => {
     try {
-        console.log("⏰ [Reminder] Scheduled regular processing started at", new Date().toLocaleString());
+        console.log("[Reminder] Scheduled regular processing started at", new Date().toLocaleString());
         await processDueReminders();
     } catch (error) {
-        console.error("❌ [Reminder] Error in scheduled processing:", error.message);
+        console.error("[Reminder] Error in scheduled processing:", error.message);
     }
 });
 
 // Schedule overdue reminder processing - runs daily at 4:00 AM
 cron.schedule("0 4 * * *", async () => {
     try {
-        console.log("⏰ [Overdue] Scheduled overdue processing started at", new Date().toLocaleString());
+        console.log("[Overdue] Scheduled overdue processing started at", new Date().toLocaleString());
         await processOverdueReminders();
     } catch (error) {
-        console.error("❌ [Overdue] Error in scheduled overdue processing:", error.message);
+        console.error("[Overdue] Error in scheduled overdue processing:", error.message);
     }
 });
 
-console.log("⏰ [Reminder] Payment reminder system initializing...");
+console.log("[Reminder] Payment reminder system initializing...");
 
 // Initialize the reminder system
 const startReminderSystem = async () => {
@@ -1036,12 +1049,12 @@ const startReminderSystem = async () => {
         // Initialize RabbitMQ with retry logic
         await initRabbitMQ();
 
-        console.log("📅 [Reminder] Payment reminder system started successfully!");
-        console.log("⏰ [Reminder] Regular processing scheduled every 30 minutes");
-        console.log("⏰ [Overdue] Overdue processing scheduled daily at 4:00 AM");
+        console.log("[Reminder] Payment reminder system started successfully!");
+        console.log("[Reminder] Regular processing scheduled every 30 minutes");
+        console.log("[Overdue] Overdue processing scheduled daily at 4:00 AM");
 
     } catch (error) {
-        console.error("❌ [Reminder] Failed to start system:", error.message);
+        console.error("[Reminder] Failed to start system:", error.message);
         throw error;
     }
 };
@@ -1065,7 +1078,7 @@ if (require.main === module) {
 
     startReminderSystem().then(() => {
         app.listen(3001, () => {
-            console.log('🚀 [Reminder] Payment reminder system running on port 3001');
+            console.log('[Reminder] Payment reminder system running on port 3001');
         });
     }).catch(error => {
         console.error('[Reminder] Failed to start system:', error);

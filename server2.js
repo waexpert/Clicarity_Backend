@@ -13,6 +13,7 @@ const mfaRoutes = require('./routes/mfaRoutes.js')
 const dataRoutes = require('./routes/dataRoutes.js')
 const webhookRoutes = require('./routes/webhookRoutes.js')
 const serviceRoutes = require('./routes/serviceRoutes.js')
+const referenceRoutes = require('./routes/referenceRoutes.js')
 const { 
     router: paymentReminderRoutes, 
     startReminderSystem: startPaymentReminderSystem, 
@@ -64,6 +65,7 @@ app.use('/service',serviceRoutes);
 app.use('/reminder',reminderRoutes);
 app.use('/birthday',birthdayRoutes);
 app.use('/payment-reminders', paymentReminderRoutes);
+app.use('/reference',referenceRoutes);
 app.get('/', (req, res) => {
     res.send("API is working");
 });
