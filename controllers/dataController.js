@@ -117,7 +117,7 @@ exports.getAllData = async (req, res) => {
 
 
 exports.updateRecordWithTimeStamp = async (req, res) => {
-  const { schemaName, tableName, recordId, columnName,comment:value, ownerId } = req.body;
+  const { schemaName, tableName, recordId, columnName,comment:value, ownerId,call} = req.body;
   console.log(req.query)
 
   // Validate schema name
@@ -138,12 +138,14 @@ exports.updateRecordWithTimeStamp = async (req, res) => {
 
     // Step 2: Extract previous value safely
     const previousValue = result.rows[0][columnName] || '';
+    const callValue = call ? "Call" + result.rows[0].times_called : '';
+
 
 
     const clearval = value.replace("'", '');
     // Step 3: Create new value with timestamp
     const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-    const newValue = `${timestamp} --- ${clearval}\n${previousValue}`;
+    const newValue = `${callValue} ${timestamp} --- ${clearval}\n${previousValue}`;
 
     // Step 4: Update record using raw SQL
     const updateQuery = queries.updateRecord(schemaName, tableName, recordId, columnName, newValue);
