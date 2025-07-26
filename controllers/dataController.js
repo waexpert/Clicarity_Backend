@@ -160,7 +160,7 @@ exports.updateRecordWithTimeStamp = async (req, res) => {
 
     // Step 2: Extract previous value safely
     const previousValue = result.rows[0][columnName] || '';
-    const callValue = call ? "Call" + result.rows[0].times_called : '';
+    const callValue = call ? "Call-" + result.rows[0].times_called + 1 : '';
 
 
 
