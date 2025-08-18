@@ -245,6 +245,13 @@ function incrementByOne({ schemaName, tableName, recordId, columnName }) {
   `;
 }
 
+function getAllPayments(){
+  return `
+  SELECT * From payment_reminders WHERE owner_id = $1;
+  `;
+}
+
+
 
 
 
@@ -259,5 +266,6 @@ module.exports = {
   getAllData,
   getRecordById,
   updateMultipleColumns,
-  incrementByOne
+  incrementByOne,
+  getAllPayments
 };

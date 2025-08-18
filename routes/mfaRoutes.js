@@ -7,10 +7,11 @@ const router = express.Router();
 // POST /mfa/setup - Generates secret & QR code
 router.post('/setup', async (req, res) => {
   const userId = req.body.user_id;
+  const userEmail = req.body.user_email;
 
   if (!userId) return res.status(400).json({ error: 'user_id is required' });
 
-  const secret = speakeasy.generateSecret({ name: `MyApp (${userId})` });
+  const secret = speakeasy.generateSecret({ name: `Clicarity: ${userEmail}` });
   console.log(secret)
   try {
     // Save the base32 secret to the DB

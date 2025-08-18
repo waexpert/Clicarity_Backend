@@ -9,49 +9,6 @@ const { sendEmail } = require("../utils/emailService");
 const { Scheduler } = require("aws-sdk");
 const { paymentReminderSetup } = require("./referenceController");
 
-// exports.registerUser = async (req, res) => {
-//   const { first_name, last_name, email, password, phone_number, country, currency, is_verified } = req.body;
-
-//   if (!email || !password || !first_name) {
-//     return res.status(400).json({ error: "Missing required fields" });
-//   }
-
-//   try {
-//     const userExists = await pool.query(queries.checkUser, [email, phone_number]);
-
-//     if (userExists.rows.length) {
-//       return res.status(400).json({ error: "Email or phone number already exists" });
-//     }
-
-//     const hashedPassword = await bcrypt.hash(password, 10);
-
-//     const result = await pool.query(queries.addUser, [
-//       first_name,
-//       last_name,
-//       email,
-//       hashedPassword,
-//       phone_number,
-//       country,
-//       currency,
-//       is_verified,
-//     ]);
-
-//     if (!result || !result.rows || result.rows.length === 0) {
-//       return res.status(500).json({ error: "User inserted but data not returned." });
-//     }
-
-//     const user = result.rows[0];
-//     // return res.status(201).json({ message: "User created successfully", user });
-
-//     sendEmail(email);
-//   sendJWTToken(user, 201, res);
-//   } catch (error) {
-//     console.error("Registration error:", error);
-//     return res.status(500).json({ error: "Internal Server Error" ,errorMessage:error });
-//   }
-// };
-
-
 function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
   if (!fields || fields.length === 0) {
     throw new Error("Fields array cannot be empty or null.");

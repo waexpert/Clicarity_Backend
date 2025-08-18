@@ -4,7 +4,7 @@ const express = require("express");
 const cron = require("node-cron");
 const axios = require("axios");
 const moment = require("moment-timezone");
-const {getPaymentReminderQuery} = require("../database/queries/referenceQueries")
+// const { getPaymentReminderQuery } = require("../database/queries/referenceQueries")
 
 let pool;
 try {
@@ -155,7 +155,7 @@ const sendReminderToQueue = async (reminderData, queueName = REMINDER_QUEUE) => 
             return false;
         }
         const paymentSetup = await pool.query(getPaymentReminderQuery(), [reminderData.owner_id]);
-        
+
         // Fix: Check if payment setup exists
         if (!paymentSetup.rows || paymentSetup.rows.length === 0) {
             console.error("[Reminder] No payment setup found for owner:", reminderData.owner_id);
@@ -414,7 +414,7 @@ const sendReminderToWebhook = async (reminderData) => {
 const sendOverdueReminderToWebhook = async (reminderData) => {
     try {
         const overdueMessage = `Hi ${reminderData.send_to_name},\n\nThis is an OVERDUE payment reminder for invoice from ${reminderData.from_company}.\nAmount: ${reminderData.amount}\nDue Date: ${reminderData.due_date} (OVERDUE)\nPayment Method: ${reminderData.payment_method}\n\nThis payment is now overdue. Please make the payment immediately to avoid any inconvenience.\n\nRegards,\n${reminderData.from_company}`;
-        
+
         const encodedMessage = encodeURIComponent(overdueMessage);
         const whatsappLink = `https://wa.me/${reminderData.send_to_phone}?text=${encodedMessage}`;
 
@@ -534,111 +534,6 @@ const processOverdueReminders = async () => {
     }
 };
 
-// Route: Add a new payment reminder with multiple reminders
-// router.post("/add", async (req, res) => {
-//     try {
-//         if (!pool) {
-//             return res.status(503).json({
-//                 success: false,
-//                 error: "Database connection not available"
-//             });
-//         }
-
-//         const {
-//             from_company,
-//             send_to_company,
-//             send_to_phone,
-//             due_date,
-//             status = 'pending',
-//             send_to_name,
-//             amount,
-//             type,
-//             date,
-//             invoice_url,
-//             payment_method,
-//             us_id,
-//             owner_id,
-//             number_of_reminders = 1,
-//             days_diff = [0]
-//         } = req.body;
-
-//         // Validate required fields
-//         const requiredFields = ['from_company', 'send_to_company', 'send_to_phone', 'due_date', 
-//             'send_to_name', 'amount', 'invoice_url', 'payment_method', 'us_id', 'owner_id'];
-//         const missingFields = requiredFields.filter(field => !req.body[field]);
-
-//         if (missingFields.length > 0) {
-//             return res.status(400).json({
-//                 success: false,
-//                 error: "Missing required fields",
-//                 missing: missingFields
-//             });
-//         }
-
-//         // Validate arrays length match
-//         if (days_diff.length !== number_of_reminders) {
-//             return res.status(400).json({
-//                 success: false,
-//                 error: "days_diff array length must match number_of_reminders"
-//             });
-//         }
-
-//         // Validate due_date format
-//         if (!moment(due_date, 'YYYY-MM-DD', true).isValid()) {
-//             return res.status(400).json({
-//                 success: false,
-//                 error: "Invalid due_date format. Use YYYY-MM-DD"
-//             });
-//         }
-
-//         const dueDateMoment = moment(due_date);
-//         const insertedRecords = [];
-
-//         // Create multiple reminder records
-//         for (let i = 0; i < number_of_reminders; i++) {
-//             // Calculate reminder date: due_date - days_diff[i]
-//             const reminderDate = dueDateMoment.clone().subtract(days_diff[i], 'days').format('YYYY-MM-DD');
-            
-//             // Determine type: first record is 'original', others are 'duplicate'
-//             const recordType = i === 0 ? 'original' : 'duplicate';
-
-//             const result = await pool.query(
-//                 `INSERT INTO payment_reminders 
-//                 (from_company, send_to_company, send_to_phone, due_date, status, send_to_name, 
-//                  amount, type, date, invoice_url, payment_method, us_id, owner_id) 
-//                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
-//                 RETURNING id`,
-//                 [from_company, send_to_company, send_to_phone, due_date, status, send_to_name, 
-//                  amount, recordType, reminderDate, invoice_url, payment_method, us_id, owner_id]
-//             );
-
-//             insertedRecords.push({
-//                 id: result.rows[0].id,
-//                 type: recordType,
-//                 reminder_date: reminderDate,
-//                 days_before_due: days_diff[i]
-//             });
-
-//             console.log(`✅ [Reminder] Created ${recordType} reminder for ${us_id} on ${reminderDate} (${days_diff[i]} days before due)`);
-//         }
-
-//         res.status(201).json({
-//             success: true,
-//             message: "Payment reminders created successfully",
-//             us_id: us_id,
-//             total_reminders: number_of_reminders,
-//             records: insertedRecords
-//         });
-
-//     } catch (error) {
-//         console.error("[Reminder] Error adding payment reminders:", error.message);
-//         res.status(500).json({
-//             success: false,
-//             error: "Internal Server Error",
-//             message: error.message
-//         });
-//     }
-// });
 
 router.post("/add", async (req, res) => {
     try {
@@ -653,20 +548,18 @@ router.post("/add", async (req, res) => {
             from_company,
             send_to_company,
             send_to_phone,
-            due_date,
+            invoice, // Changed from due_date to invoice
             status = 'pending',
             send_to_name,
             amount,
             invoice_url,
             payment_method,
             us_id,
-            owner_id,
-            number_of_reminders = 0, 
-            days_diff = []
+            owner_id
         } = req.body;
 
         // Validate required fields
-        const requiredFields = ['from_company', 'send_to_company', 'send_to_phone', 'due_date', 
+        const requiredFields = ['from_company', 'send_to_company', 'send_to_phone', 'invoice',
             'send_to_name', 'amount', 'invoice_url', 'payment_method', 'us_id', 'owner_id'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
 
@@ -678,75 +571,120 @@ router.post("/add", async (req, res) => {
             });
         }
 
-        // Validate arrays length match
-        if (days_diff.length !== number_of_reminders) {
+        // Validate invoice format
+        if (!moment(invoice, 'YYYY-MM-DD', true).isValid()) {
             return res.status(400).json({
                 success: false,
-                error: "days_diff array length must match number_of_reminders"
+                error: "Invalid invoice format. Use YYYY-MM-DD"
             });
         }
 
-        // Validate due_date format
-        if (!moment(due_date, 'YYYY-MM-DD', true).isValid()) {
-            return res.status(400).json({
+        // 1. FIRST: Get the payment reminder setup for this owner
+        let setupData;
+        try {
+            console.log("Fetching setup for owner_id:", owner_id);
+            const setupResult = await pool.query(getPaymentReminderQuery(), [owner_id]);
+            
+            if (!setupResult.rows || setupResult.rows.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: "No payment reminder setup found for this owner. Please configure your payment settings first."
+                });
+            }
+            
+            setupData = setupResult.rows[0];
+            console.log("Setup data retrieved:", setupData);
+            
+        } catch (setupError) {
+            console.error("Error fetching payment setup:", setupError);
+            return res.status(500).json({
                 success: false,
-                error: "Invalid due_date format. Use YYYY-MM-DD"
+                error: "Failed to retrieve payment setup configuration"
             });
         }
 
-        const dueDateMoment = moment(due_date);
+        // 2. CALCULATE: final_due_date = invoice + payment_terms
+        const invoiceDateMoment = moment(invoice);
+        const finalDueDate = invoiceDateMoment.clone().add(setupData.payment_terms, 'days').format('YYYY-MM-DD');
+        
+        console.log(`[Calculation] Invoice Date: ${invoice}`);
+        console.log(`[Calculation] Payment Terms: ${setupData.payment_terms} days`);
+        console.log(`[Calculation] Final Due Date: ${finalDueDate}`);
+
+        // 3. GET reminder configuration from setup
+        const numberOfReminders = setupData.number_of_reminders || 0;
+        const daysDiff = setupData.days_diff || [];
+
+        // Validate setup data
+        if (daysDiff.length !== numberOfReminders) {
+            return res.status(400).json({
+                success: false,
+                error: `Setup configuration mismatch: ${numberOfReminders} reminders configured but ${daysDiff.length} day differences provided`
+            });
+        }
+
+        const finalDueDateMoment = moment(finalDueDate);
         const insertedRecords = [];
 
-        // 1. ALWAYS create the original record with date = due_date
+        // 4. CREATE the original record with final_due_date
         const originalResult = await pool.query(
             `INSERT INTO payment_reminders 
-            (from_company, send_to_company, send_to_phone, due_date, status, send_to_name, 
-             amount, type, date, invoice_url, payment_method, us_id, owner_id) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+            (from_company, send_to_company, send_to_phone, due_date, final_due_date, status, send_to_name, 
+             amount, type, date, invoice_url, payment_method, us_id, owner_id, invoice) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
             RETURNING id`,
-            [from_company, send_to_company, send_to_phone, due_date, status, send_to_name, 
-             amount, 'original', due_date, invoice_url, payment_method, us_id, owner_id]
+            [from_company, send_to_company, send_to_phone, finalDueDate, finalDueDate, status, send_to_name,
+                amount, 'original', finalDueDate, invoice_url, payment_method, us_id, owner_id, invoice]
         );
 
         insertedRecords.push({
             id: originalResult.rows[0].id,
             type: 'original',
-            reminder_date: due_date,
-            days_before_due: 0
+            reminder_date: finalDueDate,
+            final_due_date: finalDueDate,
+            days_before_due: 0,
+            invoice: invoice
         });
 
-        console.log(`[Reminder] Created original reminder for ${us_id} on ${due_date} (due date itself)`);
+        console.log(`[Reminder] Created original reminder for ${us_id} on ${finalDueDate} (final due date)`);
 
-        // 2. Create duplicate records for each days_diff value
-        for (let i = 0; i < number_of_reminders; i++) {
-            // Calculate reminder date: due_date - days_diff[i]
-            const reminderDate = dueDateMoment.clone().subtract(days_diff[i], 'days').format('YYYY-MM-DD');
-            
+        // 5. CREATE reminder records for each days_diff value from setup
+        for (let i = 0; i < numberOfReminders; i++) {
+            // Calculate reminder date: final_due_date - days_diff[i]
+            const reminderDate = finalDueDateMoment.clone().subtract(daysDiff[i], 'days').format('YYYY-MM-DD');
+
             const result = await pool.query(
                 `INSERT INTO payment_reminders 
-                (from_company, send_to_company, send_to_phone, due_date, status, send_to_name, 
-                 amount, type, date, invoice_url, payment_method, us_id, owner_id) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+                (from_company, send_to_company, send_to_phone, due_date, final_due_date, status, send_to_name, 
+                 amount, type, date, invoice_url, payment_method, us_id, owner_id, invoice) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
                 RETURNING id`,
-                [from_company, send_to_company, send_to_phone, due_date, status, send_to_name, 
-                 amount, 'duplicate', reminderDate, invoice_url, payment_method, us_id, owner_id]
+                [from_company, send_to_company, send_to_phone, finalDueDate, finalDueDate, status, send_to_name,
+                    amount, 'reminder', reminderDate, invoice_url, payment_method, us_id, owner_id, invoice]
             );
 
             insertedRecords.push({
                 id: result.rows[0].id,
-                type: 'duplicate',
+                type: 'reminder',
                 reminder_date: reminderDate,
-                days_before_due: days_diff[i]
+                final_due_date: finalDueDate,
+                days_before_due: daysDiff[i],
+                invoice: invoice
             });
 
-            console.log(`[Reminder] Created duplicate reminder for ${us_id} on ${reminderDate} (${days_diff[i]} days before due)`);
+            console.log(`[Reminder] Created reminder ${i + 1} for ${us_id} on ${reminderDate} (${daysDiff[i]} days before due)`);
         }
 
+        // 6. RETURN success response with calculation details
         res.status(201).json({
             success: true,
             message: "Payment reminders created successfully",
             us_id: us_id,
-            total_reminders: number_of_reminders + 1, // +1 for the original record
+            invoice: invoice,
+            final_due_date: finalDueDate,
+            payment_terms: setupData.payment_terms,
+            total_reminders: numberOfReminders + 1, // +1 for the original record
+            reminder_schedule: daysDiff,
             records: insertedRecords
         });
 
@@ -759,6 +697,16 @@ router.post("/add", async (req, res) => {
         });
     }
 });
+
+// Helper function to get payment reminder setup query
+// You'll need to implement this based on your database schema
+function getPaymentReminderQuery() {
+    return `
+        SELECT *
+        FROM payment_reminder_setup 
+        WHERE owner_id = $1
+    `;
+}
 
 // Route: Mark payment as paid
 router.patch("/mark-paid/:us_id", async (req, res) => {
@@ -850,7 +798,7 @@ router.get("/by-invoice/:us_id", async (req, res) => {
             "SELECT * FROM payment_reminders WHERE us_id = $1 ORDER BY date",
             [us_id]
         );
-        
+
         res.status(200).json({
             success: true,
             data: rows,
@@ -974,7 +922,7 @@ router.get("/queue/status", async (req, res) => {
 
         const reminderQueueInfo = await rabbitChannel.checkQueue(REMINDER_QUEUE);
         const overdueQueueInfo = await rabbitChannel.checkQueue(OVERDUE_QUEUE);
-        
+
         res.status(200).json({
             success: true,
             queues: {

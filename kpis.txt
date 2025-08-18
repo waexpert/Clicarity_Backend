@@ -55,3 +55,11 @@ week ending 19 April 2026
 
 
 Need to make api for this shown in drop down in miniapps
+
+    // off campus chance bahut kamm hai rone se kuch nahi hoga ek hi company hai oracle apne pure jann laga de fir jo hoga dekha jayega
+    // OS,CN,DBMS on day before inteview
+    // bhai kese kya karu saant... DSA,OOPS,Spring Boot and Project Deployment
+    // 10 PM se 11 PM tak make full deployment of flash
+    // Find a Online Compiler project,ask claude to create login , backend api as well as file management ui and then test the compilation on backend deploy till tomorrow 11 PM
+    // Start Spring Boot Project complete it on Sunday which is 10 August 12 PM
+    // pratice DSA which striver as explained first complete the array one and then Binary Search ,Binary Tree ,Hashing,Linklist,DP,Graph,Bit Manupulation

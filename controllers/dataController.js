@@ -160,7 +160,7 @@ exports.updateRecordWithTimeStamp = async (req, res) => {
 
     // Step 2: Extract previous value safely
     const previousValue = result.rows[0][columnName] || '';
-  const callValue = call ? "Call-" + (result.rows[0].times_called + 1) : '';
+    const callValue = call ? "Call-" + (result.rows[0].times_called + 1) : '';
 
 
 
@@ -273,3 +273,139 @@ exports.incrementByOne = async (req, res) => {
     });
   }
 };
+
+exports.getAllPayments = async (req, res) => {
+  try {
+    const { owner_id } = req.query;
+    const result = await pool.query(
+      queries.getAllPayments(), [owner_id]
+    )
+    console.log(result);
+    res.status(200).json({
+      message: "Fetched All Payments Data Successfully",
+      data: result.rows || null
+    });
+
+  } catch (err) {
+    console.error("Error Getting Payment Reminder Data");
+    res.status(500).json({
+      message: "Error Getting Data",
+      error: err.message
+    })
+  }
+}
+
+exports.getAllTables = async (req, res) => {
+  try {
+    const { schemaName } = req.query;
+
+    const query = `
+      SELECT 
+          t.table_name,
+          COUNT(c.column_name) AS fields_count,
+          NULL::timestamp AS created_at, -- Placeholder unless tracked manually
+          s.last_analyze AS updated_at
+      FROM information_schema.tables t
+      LEFT JOIN information_schema.columns c 
+        ON t.table_name = c.table_name 
+        AND t.table_schema = c.table_schema
+      LEFT JOIN pg_stat_all_tables s
+        ON t.table_name = s.relname 
+        AND t.table_schema = s.schemaname
+      WHERE t.table_schema = $1
+        AND t.table_type = 'BASE TABLE'
+      GROUP BY t.table_name, s.last_analyze
+      ORDER BY t.table_name;
+    `;
+
+    const result = await pool.query(query, [schemaName]);
+
+    const formattedData = result.rows.map((row, index) => ({
+      id: (index + 1).toString(),
+      title: row.table_name,
+      fieldsCount: Number(row.fields_count),
+      createdAt: row.created_at
+        ? new Date(row.created_at).toISOString()
+        : new Date().toISOString(), // fallback
+      updatedAt: row.updated_at
+        ? new Date(row.updated_at).toISOString()
+        : new Date().toISOString()
+    }));
+
+    res.status(200).json({
+      message: "Fetched All Table Name Successfully",
+      data: formattedData
+    });
+
+  } catch (err) {
+    console.error("Error Getting Table Data", err);
+    res.status(500).json({
+      message: "Error Getting Data",
+      error: err.message
+    });
+  }
+};
+
+exports.getTableColumns = async (req, res) => {
+  try {
+    const { schemaName, tableName } = req.query;
+
+    const query = `
+      SELECT 
+          column_name,
+          data_type,
+          is_nullable,
+          character_maximum_length
+      FROM information_schema.columns
+      WHERE table_schema = $1
+        AND table_name = $2
+      ORDER BY ordinal_position;
+    `;
+
+    const result = await pool.query(query, [schemaName, tableName]);
+
+    const formattedData = result.rows.map((col, index) => ({
+      id: (index + 1).toString(),
+      name: col.column_name,
+      type: col.data_type,
+      nullable: col.is_nullable === "YES",
+      maxLength: col.character_maximum_length
+    }));
+
+    res.status(200).json({
+      message: `Fetched Columns for Table ${tableName}`,
+      data: formattedData
+    });
+
+  } catch (err) {
+    console.error("Error Getting Table Columns", err);
+    res.status(500).json({
+      message: "Error Getting Table Columns",
+      error: err.message
+    });
+  }
+};
+
+exports.createSubRecord = async(req,res)=>{
+  try{
+    const {schemaName,tableName} = req.query;
+    const data = req.body;
+    if(!pa_id){
+      res.status(500).json({
+        message: `Error Parent Id is required to create sub process`,
+        error: err.message
+      })
+    }
+
+    const result = await queries.createRecord(schemaName,tableName,data);
+    res.status(200).json({
+      message:"Sub Process created Successfully"
+    }) 
+    
+  }catch(e){
+    res.status(500).json({
+      message: `Error while creating the sub process of the process`,
+      error: err.message
+    })
+  }
+}

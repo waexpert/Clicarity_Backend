@@ -34,7 +34,6 @@ function createUserTable() {
 }
 
 
-
 module.exports ={
     getUserById,
     getUserByEmail,

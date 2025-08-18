@@ -22,8 +22,7 @@ function getPaymentReminderQuery() {
     SELECT 
      prs.*,
      u.email,
-     u.schema_name,
-     u.username
+     u.schema_name
      FROM payment_reminder_setup prs
      JOIN users u ON prs.owner_id = u.id
      WHERE prs.owner_id = $1;
@@ -45,17 +44,17 @@ function addPaymentReminderQuery() {
 
 // Additional helpful queries
 function updatePaymentReminderQuery() {
-    return `
+  return `
     UPDATE payment_reminder_setup 
     SET 
         number_of_reminders = $2,
         payment_terms = $3,
         output_webhooks = $4,
-        api_key = $5,
+        days_diff = $5,
         updated_at = NOW()
     WHERE owner_id = $1
     RETURNING *;
-    `;
+  `;
 }
 
 function deletePaymentReminderQuery() {
