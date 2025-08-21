@@ -91,6 +91,30 @@ exports.updateRecord = async (req, res) => {
 };
 
 
+// exports.getAllData = async (req, res) => {
+//   const { schemaName, tableName } = req.body;
+
+//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+//     return res.status(400).json({ error: 'Invalid schema name' });
+//   }
+
+//   try {
+//     const query = `SELECT * FROM ${schemaName}.${tableName};`;
+//     const result = await pool.query(query);
+//     // return result.rows;
+//     res.status(200).json(result.rows);
+
+//   } catch (err) {
+//     console.error('Error Retriving the Records:', err);
+//     res.status(500).json({
+//       error: 'Failed to Get Record',
+//       details: err.message
+//     });
+//   }
+// }
+
+
+// Modified getAllData Route to get the data along with the not null constrain
 exports.getAllData = async (req, res) => {
   const { schemaName, tableName } = req.body;
 
@@ -98,23 +122,48 @@ exports.getAllData = async (req, res) => {
     return res.status(400).json({ error: 'Invalid schema name' });
   }
 
+  if (!tableName || /[^a-zA-Z0-9_]/.test(tableName)) {
+    return res.status(400).json({ error: 'Invalid table name' });
+  }
+
   try {
-    const query = `SELECT * FROM ${schemaName}.${tableName};`;
-    const result = await pool.query(query);
-    // return result.rows;
-    res.status(200).json(result.rows);
+    // Get the actual data
+    const dataQuery = `SELECT * FROM "${schemaName}"."${tableName}";`;
+    const dataResult = await pool.query(dataQuery);
+
+    // Get column metadata with NOT NULL constraints
+    const metadataQuery = `
+      SELECT 
+        column_name,
+        data_type,
+        is_nullable,
+        CASE 
+          WHEN is_nullable = 'NO' THEN true 
+          ELSE false 
+        END as required,
+        column_default,
+        ordinal_position
+      FROM information_schema.columns 
+      WHERE table_schema = $1 AND table_name = $2
+      ORDER BY ordinal_position;
+    `;
+
+    const metadataResult = await pool.query(metadataQuery, [schemaName, tableName]);
+
+    res.status(200).json({
+      success: true,
+      data: dataResult.rows,
+      columns: metadataResult.rows
+    });
 
   } catch (err) {
-    console.error('Error Retriving the Records:', err);
+    console.error('Error Retrieving the Records:', err);
     res.status(500).json({
       error: 'Failed to Get Record',
       details: err.message
     });
   }
-
-
-}
-
+};
 
 exports.updateRecordWithTimeStamp = async (req, res) => {
   const { schemaName, tableName, recordId, columnName, comment: value, ownerId, call } = req.body;

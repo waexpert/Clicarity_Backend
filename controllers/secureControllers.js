@@ -493,6 +493,16 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
         columnDef += ' TEXT'; // fallback
     }
 
+
+        // Determine column NULL or NOT
+    switch (field.required) {
+      case true:
+        columnDef += ' NOT NULL';
+        break;
+      default:
+        columnDef += ' NULL';
+    }
+
     // Add default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       if (typeof field.defaultValue === 'string') {
@@ -606,6 +616,116 @@ exports.createTable = async(req, res) => {
     res.status(500).json({ error: 'Failed to create Table or insert dummy data' });
   }
 }
+
+function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
+  if (!fields || fields.length === 0) {
+    throw new Error("Fields array cannot be empty or null.");
+  }
+  if (!tableName || tableName.trim() === "") {
+    throw new Error("Table name cannot be empty or null.");
+  }
+
+  const alterStatements = [];
+  const normalizedFields = [...fields];
+
+  normalizedFields.forEach((field) => {
+    let columnDef = `"${field.name}"`;
+
+    // Determine column type
+    switch (field.type.toLowerCase()) {
+      case 'number':
+        columnDef += ' INTEGER';
+        break;
+      case 'text':
+        columnDef += ' TEXT';
+        break;
+      case 'date':
+        columnDef += ' DATE';
+        break;
+      case 'boolean':
+        columnDef += ' BOOLEAN';
+        break;
+      case 'uuid':
+        columnDef += ' UUID';
+        break;
+      default:
+        columnDef += ' TEXT'; // fallback
+    }
+
+    // Determine column NULL or NOT NULL
+    switch (field.required) {
+      case true:
+        columnDef += ' NOT NULL';
+        break;
+      default:
+        // Don't add NULL explicitly - it's the default
+        break;
+    }
+
+    // Add default value
+    if (field.defaultValue !== null && field.defaultValue !== undefined) {
+      if (typeof field.defaultValue === 'string') {
+        columnDef += ` DEFAULT '${field.defaultValue}'`;
+      } else {
+        columnDef += ` DEFAULT ${field.defaultValue}`;
+      }
+    }
+
+    // NOT NULL for locked fields (but avoid duplicate NOT NULL)
+    if (field.locked && !field.required) {
+      columnDef += ' NOT NULL';
+    }
+
+    // Add main column
+    const fullTableName = `"${schemaName}"."${tableName}"`;
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN ${columnDef}`);
+
+    // Add *_date and *_comment columns for non-system fields
+    if (!field.systemField) {
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_date" DATE`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_comment" TEXT`);
+    }
+  });
+
+  return alterStatements;
+}
+
+exports.alterTable = async (req, res) => {
+  const { fields, table_name, schema_name } = req.body;
+  
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Generate all ALTER statements
+    const alterStatements = generateAlterTableQuery(fields, table_name, true, schema_name);
+    
+    console.log('Executing ALTER statements:', alterStatements);
+    
+    // Execute each ALTER statement
+    for (const statement of alterStatements) {
+      await client.query(statement);
+    }
+    
+    await client.query('COMMIT');
+    
+    res.status(200).json({ 
+      message: `Structure of Table Modified successfully in schema ${schema_name} with name ${table_name}`,
+      statementsExecuted: alterStatements.length
+    });
+    
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error Modifying Table Structure:', err);
+    res.status(500).json({ 
+      error: 'Failed to Modify Table Structure',
+      details: err.message 
+    });
+  } finally {
+    client.release();
+  }
+};
 
 exports.createRoles = async(req,res) =>{
   const {name,permissions,schemaName} = req.body;
