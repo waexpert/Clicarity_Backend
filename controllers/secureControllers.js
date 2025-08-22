@@ -523,6 +523,7 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
     if (!field.systemField) {
       columns.push(`"${field.name}_date" DATE`);
       columns.push(`"${field.name}_comment" TEXT`);
+      columns.push(`"${field.name}_times_called" INT`);
     }
   });
 
