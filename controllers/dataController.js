@@ -458,3 +458,56 @@ exports.createSubRecord = async(req,res)=>{
     })
   }
 }
+
+exports.deleteRecord = async (req, res) => {
+  try {
+    const { id, schemaName, tableName } = req.query;
+
+    // Validate required parameters
+    if (!id || !schemaName || !tableName) {
+      return res.status(400).json({
+        error: "Missing required parameters",
+        message: "id, schemaName, and tableName are required"
+      });
+    }
+
+    // Sanitize inputs to prevent SQL injection
+    const sanitizedSchema = schemaName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+
+    // Check if record exists before deletion
+    const checkQuery = `SELECT id FROM ${sanitizedSchema}.${sanitizedTable} WHERE id = $1`;
+    const checkResult = await pool.query(checkQuery, [id]);
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "Record not found",
+        message: `No record found with id: ${id}`
+      });
+    }
+
+    // Delete the record
+    const deleteQuery = `DELETE FROM ${sanitizedSchema}.${sanitizedTable} WHERE id = $1 RETURNING id`;
+    const deleteResult = await pool.query(deleteQuery, [id]);
+
+    if (deleteResult.rows.length > 0) {
+      res.status(200).json({
+        message: "Record deleted successfully",
+        deletedId: deleteResult.rows[0].id
+      });
+    } else {
+      res.status(404).json({
+        error: "Delete operation failed",
+        message: "No record was deleted"
+      });
+    }
+
+  } catch (e) {
+    console.error('Delete record error:', e);
+    res.status(500).json({
+      error: "Internal server error",
+      message: "Failed to delete record",
+      details: e.message
+    });
+  }
+};

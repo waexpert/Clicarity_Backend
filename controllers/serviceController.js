@@ -27,3 +27,6 @@ exports.getUsersInReminder = async (req,res)=>{
         res.status(500).json({error:'Failed to get the users in reminders table'})
     }
 }
+
+
+// Table copying logic

