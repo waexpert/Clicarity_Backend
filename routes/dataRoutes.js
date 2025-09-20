@@ -1,8 +1,8 @@
-const { createRecord, updateRecord, createBulkRecord, getAllData, updateRecordWithTimeStamp, updateMultipleColumns, incrementByOne, getAllPayments, getAllTables, getTableColumns, deleteRecord } = require("../controllers/dataController.js");
+const { createRecord, updateRecord, createBulkRecord, getAllData, updateRecordWithTimeStamp, updateMultipleColumns, incrementByOne, getAllPayments, getAllTables, getTableColumns, deleteRecord, getRecordById } = require("../controllers/dataController.js");
 const express = require("express");
 const router = express.Router();
 
-
+router.post("/getRecordById",getRecordById);
 router.post("/createRecord", createRecord);
 router.get("/updateRecord",updateRecord);
 router.post("/createBulkRecord",createBulkRecord);
