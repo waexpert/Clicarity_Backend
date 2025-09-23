@@ -106,15 +106,14 @@ function isValidDate(date) {
 // }
 
 function createRecord(schemaName, tableName, record) {
-  // Process each field, converting date fields with toPostgresDate
   const processedRecord = {};
   
   for (const [key, value] of Object.entries(record)) {
     // Check if the column name contains "date"
     if (key.toLowerCase().includes("date")) {
       processedRecord[key] = toPostgresDate(value);
-    } else if (typeof value === "string" && /^[\s]*[{\[].*[}\]][\s]*$/.test(value)) {
-      // Simple regex to detect JSON-like strings (starts with { or [ and ends with } or ])
+    } else if (typeof value === "object" && value !== null) {
+      // Replace any object/array with "-"
       processedRecord[key] = "-";
     } else {
       processedRecord[key] = value;
