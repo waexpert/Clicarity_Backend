@@ -105,12 +105,13 @@ function isValidDate(date) {
 //   return { query, values };
 // }
 
-function isJsonString(str) {
+function isJsonObjectOrArray(str) {
   if (typeof str !== "string") return false;
   try {
-    JSON.parse(str);
-    return true;
-  } catch (e) {
+    const parsed = JSON.parse(str);
+    // Only treat objects or arrays as JSON, not numbers/strings/booleans
+    return typeof parsed === "object" && parsed !== null;
+  } catch {
     return false;
   }
 }
@@ -121,11 +122,11 @@ function createRecord(schemaName, tableName, record) {
   for (const [key, value] of Object.entries(record)) {
     let newValue = value;
 
-    // If value is JSON → replace with "-"
-    if (typeof value === "string" && isJsonString(value)) {
+    // Case: value is JSON string → replace with "-"
+    if (isJsonObjectOrArray(value)) {
       newValue = "-";
     } else if (key.toLowerCase().includes("date")) {
-      // If column name contains "date", convert
+      // Handle date fields
       newValue = toPostgresDate(value);
     }
 
@@ -148,6 +149,7 @@ function createRecord(schemaName, tableName, record) {
 
   return { query, values };
 }
+
 
 
 function createBulkInsertQuery(schemaName, tableName, records) {
