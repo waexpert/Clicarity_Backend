@@ -106,7 +106,7 @@ function isValidDate(date) {
 // }
 
 function isGarbageJson(str) {
-  if (typeof str !== "string") return false;
+  if (typeof str !== "string") return true;
   
   // Try to parse as JSON - if it's valid JSON (object or array), replace it
   try {
