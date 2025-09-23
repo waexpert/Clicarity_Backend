@@ -70,37 +70,85 @@ function isValidDate(date) {
   return date instanceof Date && !isNaN(date.getTime());
 }
 
-function createRecord(schemaName, tableName, record) {
-  // Process each field, converting date fields with toPostgresDate
-  const processedRecord = {};
+
+// OLD Logic with out json validation
+
+// function createRecord(schemaName, tableName, record) {
+//   // Process each field, converting date fields with toPostgresDate
+//   const processedRecord = {};
   
-  for (const [key, value] of Object.entries(record)) {
-    // Check if the column name contains "date"
-    if (key.toLowerCase().includes("date")) {
-      processedRecord[key] = toPostgresDate(value);
-    } else {
-      processedRecord[key] = value;
-    }
+//   for (const [key, value] of Object.entries(record)) {
+//     // Check if the column name contains "date"
+//     if (key.toLowerCase().includes("date")) {
+//       processedRecord[key] = toPostgresDate(value);
+//     } else {
+//       processedRecord[key] = value;
+//     }
+//   }
+  
+//   const columns = Object.keys(processedRecord); 
+//   const values = Object.values(processedRecord); 
+//   const placeholders = columns.map((_, idx) => `$${idx + 1}`);
+  
+//   // Create SET clause for UPDATE part of upsert
+//   const updateSetClause = columns
+//     .map(col => `"${col}" = EXCLUDED."${col}"`)
+//     .join(', ');
+
+//   const query = `
+//     INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
+//     VALUES (${placeholders.join(', ')})
+//     ON CONFLICT (us_id) DO UPDATE SET ${updateSetClause}
+//     RETURNING *`;
+//   ;
+
+//   return { query, values };
+// }
+
+function isJsonString(str) {
+  if (typeof str !== "string") return false;
+  try {
+    JSON.parse(str);
+    return true;
+  } catch (e) {
+    return false;
   }
-  
-  const columns = Object.keys(processedRecord); 
-  const values = Object.values(processedRecord); 
+}
+
+function createRecord(schemaName, tableName, record) {
+  const processedRecord = {};
+
+  for (const [key, value] of Object.entries(record)) {
+    let newValue = value;
+
+    // If value is JSON → replace with "-"
+    if (typeof value === "string" && isJsonString(value)) {
+      newValue = "-";
+    } else if (key.toLowerCase().includes("date")) {
+      // If column name contains "date", convert
+      newValue = toPostgresDate(value);
+    }
+
+    processedRecord[key] = newValue;
+  }
+
+  const columns = Object.keys(processedRecord);
+  const values = Object.values(processedRecord);
   const placeholders = columns.map((_, idx) => `$${idx + 1}`);
-  
-  // Create SET clause for UPDATE part of upsert
+
   const updateSetClause = columns
     .map(col => `"${col}" = EXCLUDED."${col}"`)
-    .join(', ');
+    .join(", ");
 
   const query = `
-    INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
-    VALUES (${placeholders.join(', ')})
+    INSERT INTO ${schemaName}.${tableName} (${columns.join(", ")})
+    VALUES (${placeholders.join(", ")})
     ON CONFLICT (us_id) DO UPDATE SET ${updateSetClause}
     RETURNING *`;
-  ;
 
   return { query, values };
 }
+
 
 function createBulkInsertQuery(schemaName, tableName, records) {
   if (!records || !records.length) {
