@@ -108,28 +108,13 @@ function isValidDate(date) {
 function isGarbageJson(str) {
   if (typeof str !== "string") return false;
   
-  // Performance guard: skip very large strings (assume they're legitimate)
-  if (str.length > 5000) return false;
-  
-  // Quick pattern check for common garbage patterns
-  const trimmed = str.trim();
-  if (trimmed === "{}" || trimmed === "{\n}" || /^{\s*}$/.test(trimmed)) {
-    return true;
+  // Try to parse as JSON - if it's valid JSON (object or array), replace it
+  try {
+    const parsed = JSON.parse(str);
+    return typeof parsed === "object" && parsed !== null;
+  } catch {
+    return false;
   }
-  
-  // For reasonable-sized strings, check if empty after parsing
-  if (str.length < 1000) {
-    try {
-      const parsed = JSON.parse(str);
-      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        return Object.keys(parsed).length === 0;
-      }
-    } catch {
-      return false;
-    }
-  }
-  
-  return false;
 }
 
 function createRecord(schemaName, tableName, record) {
@@ -165,7 +150,6 @@ function createRecord(schemaName, tableName, record) {
 
   return { query, values };
 }
-
 
 function createBulkInsertQuery(schemaName, tableName, records) {
   if (!records || !records.length) {
