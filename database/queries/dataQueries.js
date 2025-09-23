@@ -105,46 +105,34 @@ function isValidDate(date) {
 //   return { query, values };
 // }
 
-function isGarbageJson(str) {
-  if (typeof str !== "string") return true;
-  
-  // Try to parse as JSON - if it's valid JSON (object or array), replace it
-  try {
-    const parsed = JSON.parse(str);
-    return typeof parsed === "object" && parsed !== null;
-  } catch {
-    return false;
-  }
-}
-
 function createRecord(schemaName, tableName, record) {
+  // Process each field, converting date fields with toPostgresDate
   const processedRecord = {};
-
+  
   for (const [key, value] of Object.entries(record)) {
-    let newValue = value;
-
-    // Case: value is garbage JSON → replace with "-"
-    if (isGarbageJson(value)) {
-      newValue = "-";
-    } else if (key.toLowerCase().includes("date")) {
-      // Handle date fields
-      newValue = toPostgresDate(value);
+    // Check if the column name contains "date"
+    if (key.toLowerCase().includes("date")) {
+      processedRecord[key] = toPostgresDate(value);
+    } else if (typeof value === "string" && /^[\s]*[{\[].*[}\]][\s]*$/.test(value)) {
+      // Simple regex to detect JSON-like strings (starts with { or [ and ends with } or ])
+      processedRecord[key] = "-";
+    } else {
+      processedRecord[key] = value;
     }
-
-    processedRecord[key] = newValue;
   }
-
-  const columns = Object.keys(processedRecord);
-  const values = Object.values(processedRecord);
+  
+  const columns = Object.keys(processedRecord); 
+  const values = Object.values(processedRecord); 
   const placeholders = columns.map((_, idx) => `$${idx + 1}`);
-
+  
+  // Create SET clause for UPDATE part of upsert
   const updateSetClause = columns
     .map(col => `"${col}" = EXCLUDED."${col}"`)
-    .join(", ");
+    .join(', ');
 
   const query = `
-    INSERT INTO ${schemaName}.${tableName} (${columns.join(", ")})
-    VALUES (${placeholders.join(", ")})
+    INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
+    VALUES (${placeholders.join(', ')})
     ON CONFLICT (us_id) DO UPDATE SET ${updateSetClause}
     RETURNING *`;
 
