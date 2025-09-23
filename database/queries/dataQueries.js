@@ -105,15 +105,31 @@ function isValidDate(date) {
 //   return { query, values };
 // }
 
-function isJsonObjectOrArray(str) {
+function isGarbageJson(str) {
   if (typeof str !== "string") return false;
-  try {
-    const parsed = JSON.parse(str);
-    // Only treat objects or arrays as JSON, not numbers/strings/booleans
-    return typeof parsed === "object" && parsed !== null;
-  } catch {
-    return false;
+  
+  // Performance guard: skip very large strings (assume they're legitimate)
+  if (str.length > 5000) return false;
+  
+  // Quick pattern check for common garbage patterns
+  const trimmed = str.trim();
+  if (trimmed === "{}" || trimmed === "{\n}" || /^{\s*}$/.test(trimmed)) {
+    return true;
   }
+  
+  // For reasonable-sized strings, check if empty after parsing
+  if (str.length < 1000) {
+    try {
+      const parsed = JSON.parse(str);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        return Object.keys(parsed).length === 0;
+      }
+    } catch {
+      return false;
+    }
+  }
+  
+  return false;
 }
 
 function createRecord(schemaName, tableName, record) {
@@ -122,8 +138,8 @@ function createRecord(schemaName, tableName, record) {
   for (const [key, value] of Object.entries(record)) {
     let newValue = value;
 
-    // Case: value is JSON string → replace with "-"
-    if (isJsonObjectOrArray(value)) {
+    // Case: value is garbage JSON → replace with "-"
+    if (isGarbageJson(value)) {
       newValue = "-";
     } else if (key.toLowerCase().includes("date")) {
       // Handle date fields
@@ -149,7 +165,6 @@ function createRecord(schemaName, tableName, record) {
 
   return { query, values };
 }
-
 
 
 function createBulkInsertQuery(schemaName, tableName, records) {
