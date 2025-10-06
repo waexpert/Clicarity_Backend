@@ -19,6 +19,22 @@ exports.getRecordById = async (req, res) => {
   }
 };
 
+exports.getRecordByTarget = async (req, res) => {
+  try {
+    const { targetColumn ,targetValue,schemaName,tableName } = req.body;
+    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE $1 = $2`;
+    const result = await pool.query(query, [targetColumn,targetValue]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching record by target:', error.message);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
 
 
 exports.createRecord = async (req, res) => {
@@ -528,5 +544,42 @@ exports.deleteRecord = async (req, res) => {
       message: "Failed to delete record",
       details: e.message
     });
+  }
+};
+
+
+const updateWastageByUsId = async (schemaName, tableName, us_id) => {
+  try {
+    const fullTableName = `${schemaName}.${tableName}`;
+    
+    // Step 1: Sum all wastage where pa_id = us_id
+    const sumQuery = `
+      SELECT COALESCE(SUM(wastage), 0) as total_wastage
+      FROM ${fullTableName}
+      WHERE pa_id = $1
+    `;
+    
+    const sumResult = await pool.query(sumQuery, [us_id]);
+    const totalWastage = sumResult.rows[0].total_wastage;
+    
+    // Step 2: Update wastage where us_id matches
+    const updateQuery = `
+      UPDATE ${fullTableName}
+      SET wastage = $1
+      WHERE us_id = $2
+      RETURNING *
+    `;
+    
+    const updateResult = await pool.query(updateQuery, [totalWastage, us_id]);
+    
+    return {
+      success: updateResult.rowCount > 0,
+      updatedRecord: updateResult.rows[0] || null,
+      totalWastage: totalWastage
+    };
+    
+  } catch (error) {
+    console.error('Error updating wastage:', error);
+    throw error;
   }
 };
