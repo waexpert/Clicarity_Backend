@@ -84,6 +84,8 @@ exports.createBulkRecord = async (req, res) => {
     const { query, values } = queries.createBulkInsertQuery(schemaName, tableName, records);
     const result = await pool.query(query, values);
 
+    console.log(result)
+
     res.status(200).json({
       message: `Records Inserted to Table ${tableName} successfully.`,
       count: result.rowCount
@@ -382,6 +384,8 @@ exports.getAllPayments = async (req, res) => {
     })
   }
 }
+
+
 
 exports.getAllTables = async (req, res) => {
   try {

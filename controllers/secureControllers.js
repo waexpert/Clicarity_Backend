@@ -431,6 +431,111 @@ async function addColumnsToTable(req, res) {
 //   }
 // }
 
+
+// This logic is giving error as pa_id column is getting both constains NULL and NOT NULL
+// function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
+//   if (!fields || fields.length === 0) {
+//     throw new Error("Fields array cannot be empty or null.");
+//   }
+//   if (!tableName || tableName.trim() === "") {
+//     throw new Error("Table name cannot be empty or null.");
+//   }
+
+//   const columns = [];
+
+//   const normalizedFields = [...fields];
+
+//   // Add id field if not included
+//   const hasId = normalizedFields.some(f => f.name === 'id');
+//   if (!hasId && useUUID) {
+//     normalizedFields.unshift({ name: 'id', type: 'uuid', systemField: true });
+//   }
+
+//   // Add us_id field if not included
+//   const hasUsId = normalizedFields.some(f => f.name === 'us_id');
+//   if (!hasUsId) {
+//     normalizedFields.push({ name: 'us_id', type: 'text', systemField: true });
+//   }
+
+//   normalizedFields.forEach((field) => {
+//     let columnDef = `"${field.name}"`;
+
+//     // Force override for 'id'
+//     if (field.name === 'id' && useUUID) {
+//       columnDef = `"id" UUID PRIMARY KEY DEFAULT uuid_generate_v4()`;
+//       columns.push(columnDef);
+//       return;
+//     }
+
+//     // Force override for 'us_id'
+//     if (field.name === 'us_id') {
+//       columnDef = `"us_id" TEXT UNIQUE NOT NULL`;
+//       columns.push(columnDef);
+//       return;
+//     }
+
+//     // Determine column type
+//     switch (field.type.toLowerCase()) {
+//       case 'number':
+//         columnDef += ' INTEGER';
+//         break;
+//       case 'text':
+//         columnDef += ' TEXT';
+//         break;
+//       case 'date':
+//         columnDef += ' DATE';
+//         break;
+//       case 'boolean':
+//         columnDef += ' BOOLEAN';
+//         break;
+//       case 'uuid':
+//         columnDef += ' UUID';
+//         break;
+//       default:
+//         columnDef += ' TEXT'; // fallback
+//     }
+
+
+//         // Determine column NULL or NOT
+//     switch (field.required) {
+//       case true:
+//         columnDef += ' NOT NULL';
+//         break;
+//       default:
+//         columnDef += ' NULL';
+//     }
+
+//     // Add default value
+//     if (field.defaultValue !== null && field.defaultValue !== undefined) {
+//       if (typeof field.defaultValue === 'string') {
+//         columnDef += ` DEFAULT '${field.defaultValue}'`;
+//       } else {
+//         columnDef += ` DEFAULT ${field.defaultValue}`;
+//       }
+//     }
+
+//     // NOT NULL for locked fields
+//     if (field.locked) {
+//       columnDef += ' NOT NULL';
+//     }
+
+//     columns.push(columnDef);
+
+//     // Add *_date and *_comment columns for non-system fields
+//     if (!field.systemField) {
+//       columns.push(`"${field.name}_date" DATE`);
+//       columns.push(`"${field.name}_comment" TEXT`);
+//       columns.push(`"${field.name}_times_called" INT`);
+//     }
+//   });
+
+//   const fullTableName = `"${schemaName}"."${tableName}"`;
+//   const query = `CREATE TABLE IF NOT EXISTS ${fullTableName} (${columns.join(', ')})`;
+
+//   return query;
+// }
+
+
 function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
   if (!fields || fields.length === 0) {
     throw new Error("Fields array cannot be empty or null.");
@@ -493,17 +598,7 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
         columnDef += ' TEXT'; // fallback
     }
 
-
-        // Determine column NULL or NOT
-    switch (field.required) {
-      case true:
-        columnDef += ' NOT NULL';
-        break;
-      default:
-        columnDef += ' NULL';
-    }
-
-    // Add default value
+    // Add default value BEFORE NULL/NOT NULL constraint
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
@@ -512,10 +607,12 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
       }
     }
 
-    // NOT NULL for locked fields
-    if (field.locked) {
+    // Determine if column should be NOT NULL
+    // A field should be NOT NULL if it's required OR locked
+    if (field.required === true || field.locked === true) {
       columnDef += ' NOT NULL';
     }
+    // Don't explicitly add NULL - it's the default in PostgreSQL
 
     columns.push(columnDef);
 
