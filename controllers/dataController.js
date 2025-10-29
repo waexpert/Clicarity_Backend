@@ -322,6 +322,7 @@ exports.updateMultipleColumns = async (req, res) => {
 
     if (wid) {
       const wResult = await pool.query(`SELECT * FROM $1 WHERE id = $2`, table, recordId);
+      console.log(wResult);
       axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
     }
 
