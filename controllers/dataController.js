@@ -286,7 +286,7 @@ exports.updateMultipleColumns = async (req, res) => {
     recordId, vname, wid,
     ...rest
   } = req.query;
-  const vendorTable = schemaName.vendors;
+  const table = schemaName.tableName;
   try {
     if (!schemaName || !tableName || !recordId) {
       return res.status(400).json({ error: 'Missing schemaName, tableName, or recordId' });
@@ -319,9 +319,9 @@ exports.updateMultipleColumns = async (req, res) => {
 
     const result = await pool.query(query, values);
 
-    if (vname) {
-      const vendorResult = await pool.query(`SELECT * FROM $1 WHERE name = $2`, vendorTable, vname);
-      axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
+    if (wid) {
+      const wResult = await pool.query(`SELECT * FROM $1 WHERE id = $2`, table, recordId);
+      axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
     }
 
     res.status(200).json({

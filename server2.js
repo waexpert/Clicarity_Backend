@@ -144,6 +144,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const { body, validationResult } = require('express-validator');
+// const { createPdfs } = require("./index2.js");
 
 // Import existing routes
 const userRoutes = require('./routes/userRoutes.js');
@@ -221,6 +222,16 @@ app.use('/reminder',reminderRoutes);
 app.use('/birthday',birthdayRoutes);
 app.use('/payment-reminders', paymentReminderRoutes);
 app.use('/reference',referenceRoutes);
+
+
+app.get("/generatePdf",async (req,res)=>{
+   const {schemaName,tableName,assignedTo} = req.query;
+    const query = `
+SELECT * FROM ${schemaName}.${tableName} WHERE assigned_to = '${assignedTo}';  
+`;
+const result = await pool.query(query);
+createPdfs(result.rows,res);
+})
 
 
 // POST /api/contacts/batch-update

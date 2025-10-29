@@ -751,7 +751,7 @@ const discoverTaskTables = async () => {
       JOIN 
         pg_catalog.pg_namespace n ON n.oid = c.relnamespace
       WHERE 
-        c.relname = 'tasks'
+        c.relname = 'taskstatus'
         AND c.relkind = 'r'
         AND n.nspname NOT IN ('pg_catalog', 'information_schema')
       ORDER BY 
@@ -759,7 +759,7 @@ const discoverTaskTables = async () => {
     `;
 
     const { rows } = await pool.query(query);
-    console.log(`📊 Found ${rows.length} "tasks" tables across different schemas`);
+    console.log(`📊 Found ${rows.length} "taskstatus" tables across different schemas`);
     return rows;
   } catch (error) {
     console.error("❌ Error discovering task tables:", error);
@@ -910,7 +910,6 @@ const generatePdfForTask = async (task) => {
     }
 
     console.log(`Calling API to generate PDF for ${task.assigned_to}`);
-    
     const response = await axios.get(
       `https://click.wa.expert/api/generatePdf?schemaName=${schema_name}&tableName=${table_name}&assignedTo=${task.assigned_to}`,
       { timeout: 10000 }
@@ -952,7 +951,7 @@ const sendTaskToWebhook = async (task) => {
 
     // const webhookUrl = task.webhook_task || "https://webhooks.wa.expert/webhook/682034da1f9f7b05384582b3";
 
-    const webhookUrl = task.webhook_task || "https://webhooks.wa.expert/webhook/689c55da82aa0a0c52fb7e24";
+    const webhookUrl = task.webhook_task || "https://webhooks.wa.expert/webhook/68f5ff121b9845c02d3ce777";
     console.log(`Using webhook URL: ${webhookUrl} for task ${task.task_name}`);
 
     const response = await axios.post(webhookUrl, payload, {

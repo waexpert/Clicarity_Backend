@@ -64,7 +64,6 @@ SELECT * FROM ${schemaName}.${tableName} WHERE assigned_to = '${assignedTo}';
 `;
 const result = await pool.query(query);
 createPdfs(result.rows,res);
-
 })
 
 //Url Shorting

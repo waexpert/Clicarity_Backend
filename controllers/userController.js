@@ -113,7 +113,8 @@ async function createTeamMemberTable(schemaName, userData) {
     { name: 'empid', type: 'text', systemField: false },
     { name: 'department', type: 'text', systemField: false },
     { name: 'manager_name', type: 'text', systemField: false },
-    { name: 'birthday', type: 'date', systemField: false }
+    { name: 'birthday', type: 'date', systemField: false },
+    { name: 'email', type: 'text', systemField: false }
   ];
 
   // Create the table
