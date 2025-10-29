@@ -1,3 +1,4 @@
+const axios = require("axios");
 const pool = require("../database/databaseConnection");
 const queries = require("../database/queries/dataQueries");
 const userQueries = require("../database/queries/userQueries");
