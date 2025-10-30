@@ -200,13 +200,23 @@ function createBulkInsertQuery(schemaName, tableName, records) {
   return { query, values: allValues };
 }
 
+// function updateRecord(schemaName, tableName, recordId, columnName, value) {
+//   const formattedValue = typeof value === 'string' ? `'${value}'` : value;
+//   return `
+//     UPDATE "${schemaName}"."${tableName}" 
+//     SET "${columnName}" = ${formattedValue} 
+//     WHERE id = '${recordId}';
+//   `;
+// }
+
 function updateRecord(schemaName, tableName, recordId, columnName, value) {
-  const formattedValue = typeof value === 'string' ? `'${value}'` : value;
-  return `
-    UPDATE "${schemaName}"."${tableName}" 
-    SET "${columnName}" = ${formattedValue} 
-    WHERE id = '${recordId}';
-  `;
+  // Return a parameterized query object instead of a string
+  return {
+    text: `UPDATE "${schemaName}"."${tableName}" 
+           SET "${columnName}" = $1 
+           WHERE id = $2`,
+    values: [value, recordId]
+  };
 }
 
 // Add a function to ensure the unique constraint exists

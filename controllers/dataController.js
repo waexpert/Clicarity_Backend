@@ -5,7 +5,7 @@ const userQueries = require("../database/queries/userQueries");
 
 exports.getRecordById = async (req, res) => {
   try {
-    const { id,schemaName,tableName } = req.body;
+    const { id, schemaName, tableName } = req.body;
     const query = `SELECT * FROM ${schemaName}.${tableName} WHERE us_id = $1`;
     const result = await pool.query(query, [id]);
 
@@ -136,19 +136,19 @@ exports.createBulkRecord = async (req, res) => {
 exports.updateRecord = async (req, res) => {
   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid } = req.query;
   const vendorTable = schemaName.vendors;
-  
+
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
     return res.status(400).json({ error: 'Invalid schema name' });
   }
 
   try {
     let formattedValue = value;
-    
+
     // Handle date formatting
     if (columnName.toLowerCase().includes('date')) {
       formattedValue = queries.toPostgresDate(value);
     }
-    
+
     // Handle array values (for process_steps or similar columns)
     if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
       try {
@@ -168,7 +168,9 @@ exports.updateRecord = async (req, res) => {
       }
     }
 
-    await pool.query(queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue));
+    // await pool.query(queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue));
+    const query = queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue);
+    await pool.query(query.text, query.values);
     await pool.query(userQueries.updateApi, [ownerId]);
 
     if (vname) {
@@ -176,9 +178,9 @@ exports.updateRecord = async (req, res) => {
       axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: `Record updated to Table ${schemaName}.${tableName} successfully.`,
-      updatedValue: formattedValue 
+      updatedValue: formattedValue
     });
   } catch (err) {
     console.error('Error Updating the Record:', err);
@@ -377,12 +379,12 @@ exports.updateMultipleColumns = async (req, res) => {
 
     const result = await pool.query(query, values);
 
-if (wid) {
-  const table = `${schemaName}.${tableName}`;
-  const wResult = await pool.query(`SELECT * FROM ${table} WHERE id = $1`, [recordId]);
-  console.log(wResult.rows);
-  axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
-}
+    if (wid) {
+      const table = `${schemaName}.${tableName}`;
+      const wResult = await pool.query(`SELECT * FROM ${table} WHERE id = $1`, [recordId]);
+      console.log(wResult.rows);
+      axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
+    }
 
     res.status(200).json({
       message: 'Update successful',
@@ -539,23 +541,23 @@ exports.getTableColumns = async (req, res) => {
   }
 };
 
-exports.createSubRecord = async(req,res)=>{
-  try{
-    const {schemaName,tableName} = req.query;
+exports.createSubRecord = async (req, res) => {
+  try {
+    const { schemaName, tableName } = req.query;
     const data = req.body;
-    if(!pa_id){
+    if (!pa_id) {
       res.status(500).json({
         message: `Error Parent Id is required to create sub process`,
         error: err.message
       })
     }
 
-    const result = await queries.createRecord(schemaName,tableName,data);
+    const result = await queries.createRecord(schemaName, tableName, data);
     res.status(200).json({
-      message:"Sub Process created Successfully"
-    }) 
-    
-  }catch(e){
+      message: "Sub Process created Successfully"
+    })
+
+  } catch (e) {
     res.status(500).json({
       message: `Error while creating the sub process of the process`,
       error: err.message
@@ -620,17 +622,17 @@ exports.deleteRecord = async (req, res) => {
 const updateWastageByUsId = async (schemaName, tableName, us_id) => {
   try {
     const fullTableName = `${schemaName}.${tableName}`;
-    
+
     // Step 1: Sum all wastage where pa_id = us_id
     const sumQuery = `
       SELECT COALESCE(SUM(wastage), 0) as total_wastage
       FROM ${fullTableName}
       WHERE pa_id = $1
     `;
-    
+
     const sumResult = await pool.query(sumQuery, [us_id]);
     const totalWastage = sumResult.rows[0].total_wastage;
-    
+
     // Step 2: Update wastage where us_id matches
     const updateQuery = `
       UPDATE ${fullTableName}
@@ -638,15 +640,15 @@ const updateWastageByUsId = async (schemaName, tableName, us_id) => {
       WHERE us_id = $2
       RETURNING *
     `;
-    
+
     const updateResult = await pool.query(updateQuery, [totalWastage, us_id]);
-    
+
     return {
       success: updateResult.rowCount > 0,
       updatedRecord: updateResult.rows[0] || null,
       totalWastage: totalWastage
     };
-    
+
   } catch (error) {
     console.error('Error updating wastage:', error);
     throw error;
