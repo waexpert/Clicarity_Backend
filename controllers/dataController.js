@@ -100,29 +100,86 @@ exports.createBulkRecord = async (req, res) => {
   }
 };
 
+// exports.updateRecord = async (req, res) => {
+//   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid } = req.query;
+//   const vendorTable = schemaName.vendors;
+//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+//     return res.status(400).json({ error: 'Invalid schema name' });
+//   }
+
+//   try {
+//     // Format date values if column name contains 'date'
+//     let formattedValue = value;
+//     if (columnName.toLowerCase().includes('date')) {
+//       formattedValue = queries.toPostgresDate(value);
+//     }
+
+//     await pool.query(queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue));
+//     await pool.query(userQueries.updateApi, [ownerId]);
+
+//     if (vname) {
+//       const vendorResult = await pool.query(`SELECT * FROM $1 WHERE name = $2`, vendorTable, vname);
+//       axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
+//     }
+
+//     res.status(200).json({ message: `Record updated to Table ${schemaName}.${tableName} successfully.` });
+//   } catch (err) {
+//     console.error('Error Updating the Record:', err);
+//     res.status(500).json({
+//       error: 'Failed to Update Record',
+//       details: err.message
+//     });
+//   }
+// };
+
+
 exports.updateRecord = async (req, res) => {
   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid } = req.query;
   const vendorTable = schemaName.vendors;
+  
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
     return res.status(400).json({ error: 'Invalid schema name' });
   }
 
   try {
-    // Format date values if column name contains 'date'
     let formattedValue = value;
+    
+    // Handle date formatting
     if (columnName.toLowerCase().includes('date')) {
       formattedValue = queries.toPostgresDate(value);
+    }
+    
+    // Handle array values (for process_steps or similar columns)
+    if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
+      try {
+        // Check if value is JSON stringified array
+        if (typeof value === 'string' && (value.startsWith('[') || value.includes(','))) {
+          if (value.startsWith('[')) {
+            // Parse JSON array: "[\"process1\",\"process2\"]"
+            formattedValue = JSON.parse(decodeURIComponent(value));
+          } else {
+            // Parse comma-separated: "process1,process2,process3"
+            formattedValue = value.split(',').map(item => item.trim()).filter(item => item.length > 0);
+          }
+        }
+      } catch (parseError) {
+        console.error('Error parsing array value:', parseError);
+        return res.status(400).json({ error: 'Invalid array format' });
+      }
     }
 
     await pool.query(queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue));
     await pool.query(userQueries.updateApi, [ownerId]);
 
     if (vname) {
-      const vendorResult = await pool.query(`SELECT * FROM $1 WHERE name = $2`, vendorTable, vname);
+      const vendorResult = await pool.query(`SELECT * FROM ${vendorTable} WHERE name = $1`, [vname]);
       axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
     }
 
-    res.status(200).json({ message: `Record updated to Table ${schemaName}.${tableName} successfully.` });
+    res.status(200).json({ 
+      message: `Record updated to Table ${schemaName}.${tableName} successfully.`,
+      updatedValue: formattedValue 
+    });
   } catch (err) {
     console.error('Error Updating the Record:', err);
     res.status(500).json({
@@ -340,6 +397,7 @@ if (wid) {
     });
   }
 };
+
 
 
 exports.incrementByOne = async (req, res) => {
