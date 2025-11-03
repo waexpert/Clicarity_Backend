@@ -255,6 +255,7 @@ exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
     // Add associated date and comment columns
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" DATE`);
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_comment" TEXT`);
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_times_called" TEXT`);
   });
 
   return alterStatements;
@@ -716,6 +717,7 @@ exports.createTable = async(req, res) => {
 }
 
 function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName = 'public') {
+  console.log("values",fields,tableName,schemaName);  
   if (!fields || fields.length === 0) {
     throw new Error("Fields array cannot be empty or null.");
   }
@@ -782,6 +784,7 @@ function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName =
     if (!field.systemField) {
       alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_date" DATE`);
       alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_comment" TEXT`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_times_called" INT`);
     }
   });
 
