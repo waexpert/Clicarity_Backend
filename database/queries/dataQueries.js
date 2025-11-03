@@ -211,6 +211,7 @@ function createBulkInsertQuery(schemaName, tableName, records) {
 
 function updateRecord(schemaName, tableName, recordId, columnName, value) {
   // Return a parameterized query object instead of a string
+
   return {
     text: `UPDATE "${schemaName}"."${tableName}" 
            SET "${columnName}" = $1 
