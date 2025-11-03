@@ -2,6 +2,7 @@ const axios = require("axios");
 const pool = require("../database/databaseConnection");
 const queries = require("../database/queries/dataQueries");
 const userQueries = require("../database/queries/userQueries");
+const { generateAlterTableQuery } = require("./secureControllers");
 
 exports.getRecordById = async (req, res) => {
   try {
@@ -133,9 +134,83 @@ exports.createBulkRecord = async (req, res) => {
 // };
 
 
+
+// With Notification send to the webhook URL
+
+// exports.updateRecord = async (req, res) => {
+//   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid, userTableName,userSchemaName } = req.query;
+//   const vendorTable = `${schemaName}.vendors`; 
+
+
+//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+//     return res.status(400).json({ error: 'Invalid schema name' });
+//   }
+
+//   try {
+//     let formattedValue = value;
+
+//     // Handle date formatting
+//     if (columnName.toLowerCase().includes('date')) {
+//       formattedValue = queries.toPostgresDate(value);
+//     }
+
+//     // Handle array values (for process_steps or similar columns)
+//     if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
+//       try {
+//         if (typeof value === 'string') {
+//           // Remove surrounding quotes if present
+//           let cleanValue = value.replace(/^["']|["']$/g, '').trim();
+
+//           console.log('Original value:', value);
+//           console.log('Cleaned value:', cleanValue);
+
+//           if (cleanValue.startsWith('[')) {
+//             // Parse JSON array
+//             formattedValue = JSON.parse(decodeURIComponent(cleanValue));
+//           } else {
+//             // Parse comma-separated and clean each item
+//             formattedValue = cleanValue
+//               .split(',')
+//               .map(item => item.trim().replace(/^["']|["']$/g, '')) 
+//               .filter(item => item.length > 0);
+//           }
+
+//           console.log('Final formatted value:', formattedValue);
+//         }
+//       } catch (parseError) {
+//         console.error('Error parsing array value:', parseError);
+//         return res.status(400).json({ error: 'Invalid array format' });
+//       }
+//     }
+    
+//     const query = queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue);
+//     console.log(query)
+//     await pool.query(query.text, query.values);
+//     await pool.query(userQueries.updateApi, [ownerId]);
+
+//     if (vname) {
+//       const vendorResult = await pool.query(`SELECT * FROM ${vendorTable} WHERE name = $1`, [vname]);
+//       await axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows); // FIX: Added await
+//     }
+
+//     res.status(200).json({
+//       message: `Record updated to Table ${schemaName}.${tableName} successfully.`,
+//       updatedValue: formattedValue
+//     });
+//   } catch (err) {
+//     console.error('Error Updating the Record:', err);
+//     res.status(500).json({
+//       error: 'Failed to Update Record',
+//       details: err.message
+//     });
+//   }
+// };
+
+
+// This is a final version of the update record with process steps column alteration and also send the webhook notification
 exports.updateRecord = async (req, res) => {
-  const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid } = req.query;
-  const vendorTable = schemaName.vendors;
+  const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid, userTableName, userSchemaName } = req.query;
+  const vendorTable = `${schemaName}.vendors`; 
 
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
     return res.status(400).json({ error: 'Invalid schema name' });
@@ -152,30 +227,109 @@ exports.updateRecord = async (req, res) => {
     // Handle array values (for process_steps or similar columns)
     if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
       try {
-        // Check if value is JSON stringified array
-        if (typeof value === 'string' && (value.startsWith('[') || value.includes(','))) {
-          if (value.startsWith('[')) {
-            // Parse JSON array: "[\"process1\",\"process2\"]"
-            formattedValue = JSON.parse(decodeURIComponent(value));
+        if (typeof value === 'string') {
+          // Remove surrounding quotes if present
+          let cleanValue = value.replace(/^["']|["']$/g, '').trim();
+
+          console.log('Original value:', value);
+          console.log('Cleaned value:', cleanValue);
+
+          if (cleanValue.startsWith('[')) {
+            // Parse JSON array
+            formattedValue = JSON.parse(decodeURIComponent(cleanValue));
           } else {
-            // Parse comma-separated: "process1,process2,process3"
-            formattedValue = value.split(',').map(item => item.trim()).filter(item => item.length > 0);
+            // Parse comma-separated and clean each item
+            formattedValue = cleanValue
+              .split(',')
+              .map(item => item.trim().replace(/^["']|["']$/g, '')) 
+              .filter(item => item.length > 0);
+          }
+
+          console.log('Final formatted value:', formattedValue);
+        }
+
+        // If columnName is process_steps, create columns for each element
+        if (columnName === 'process_steps' && Array.isArray(formattedValue)) {
+          // Validate userSchemaName and userTableName
+          if (!userSchemaName || !userTableName) {
+            console.error('Missing userSchemaName or userTableName for process_steps alteration');
+            return res.status(400).json({ 
+              error: 'userSchemaName and userTableName are required for process_steps updates' 
+            });
+          }
+
+          // Use schemaName as fallback if userSchemaName is invalid
+          const targetSchema = (userSchemaName && userSchemaName !== 'true' && userSchemaName !== 'false') 
+            ? userSchemaName 
+            : schemaName;
+          
+          const targetTable = userTableName || tableName;
+
+          console.log('Target schema:', targetSchema);
+          console.log('Target table:', targetTable);
+
+          const client = await pool.connect();
+          
+          try {
+            await client.query('BEGIN');
+            
+            // Generate fields for each process step element
+            const fields = [];
+            formattedValue.forEach((element) => {
+              const sanitizedElement = element.replace(/[^a-zA-Z0-9_]/g, '_');
+              
+              fields.push(
+                { name: `${sanitizedElement}`, type: 'text', required: false, systemField: false },
+                { name: `${sanitizedElement}_balance`, type: 'number', required: false, systemField: false },
+                { name: `${sanitizedElement}_quantity_received`, type: 'number', required: false, systemField: false },
+                { name: `${sanitizedElement}_wastage`, type: 'number', required: false, systemField: false }
+              );
+            });
+
+            // Generate ALTER statements using the helper function
+            const alterStatements = generateAlterTableQuery(fields, targetTable,targetSchema);
+            
+            console.log('Executing ALTER statements for process_steps:', alterStatements);
+            
+            // Execute each ALTER statement, ignoring errors for columns that already exist
+            for (const statement of alterStatements) {
+              try {
+                await client.query(statement);
+              } catch (alterErr) {
+                // Ignore "column already exists" errors (PostgreSQL error code 42701)
+                if (alterErr.code !== '42701') {
+                  throw alterErr;
+                }
+                console.log('Column already exists, skipping:', statement);
+              }
+            }
+            
+            await client.query('COMMIT');
+            console.log('Successfully created columns for process_steps elements');
+            
+          } catch (alterError) {
+            await client.query('ROLLBACK');
+            console.error('Error altering table for process_steps:', alterError);
+            // Continue with the update even if alter fails
+          } finally {
+            client.release();
           }
         }
+        
       } catch (parseError) {
         console.error('Error parsing array value:', parseError);
         return res.status(400).json({ error: 'Invalid array format' });
       }
     }
-
-    // await pool.query(queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue));
+    
     const query = queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue);
+    console.log(query);
     await pool.query(query.text, query.values);
     await pool.query(userQueries.updateApi, [ownerId]);
 
     if (vname) {
       const vendorResult = await pool.query(`SELECT * FROM ${vendorTable} WHERE name = $1`, [vname]);
-      axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
+      await axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
     }
 
     res.status(200).json({
@@ -190,6 +344,7 @@ exports.updateRecord = async (req, res) => {
     });
   }
 };
+
 
 
 // exports.getAllData = async (req, res) => {
