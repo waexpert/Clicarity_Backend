@@ -24,7 +24,7 @@ exports.getRecordById = async (req, res) => {
 exports.getRecordByTarget = async (req, res) => {
   try {
     const { targetColumn, targetValue, schemaName, tableName } = req.body;
-    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1 LIMIT 1`;
+    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1 `;
     const result = await pool.query(query, [targetValue]);
 
     // If no record found → return false
