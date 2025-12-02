@@ -24,7 +24,7 @@ exports.getRecordById = async (req, res) => {
 exports.getRecordByTarget = async (req, res) => {
   try {
     const { targetColumn, targetValue, schemaName, tableName } = req.body;
-    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1 `;
+    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1`;
     const result = await pool.query(query, [targetValue]);
 
     // If no record found → return false
@@ -42,6 +42,26 @@ exports.getRecordByTarget = async (req, res) => {
   }
 };
 
+exports.getRecordByTargetAll = async (req, res) => {
+  try {
+    const { targetColumn, targetValue, schemaName, tableName } = req.body;
+    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1`;
+    const result = await pool.query(query, [targetValue]);
+
+    // If no record found → return false
+    if (result.rows.length === 0) {
+      return res.status(200).json(false);
+    }
+
+    // If record found → return the record
+    return res.status(200).json(result.rows);
+
+  } catch (error) {
+    console.error('Error fetching record by target:', error.message);
+    // If any error → also return false instead of crashing
+    return res.status(200).json(false);
+  }
+};
 
 exports.createRecord = async (req, res) => {
   const { schemaName, tableName, record } = req.body;
