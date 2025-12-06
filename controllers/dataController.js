@@ -367,6 +367,242 @@ exports.updateRecord = async (req, res) => {
 
 
 
+exports.updateMultipleColumnsBody = async (req, res) => {
+  const {
+    schemaName,
+    tableName,
+    recordId,
+    ownerId,
+    vname,
+    wid,
+    userTableName,
+    userSchemaName,
+    updates // Object containing column-value pairs: { columnName: value, ... }
+  } = req.body;
+
+  try {
+    // Validate required fields
+    if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+      return res.status(400).json({ error: 'Invalid schema name' });
+    }
+
+    if (!tableName || !recordId) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: schemaName, tableName, or recordId' 
+      });
+    }
+
+    if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) {
+      return res.status(400).json({ 
+        error: 'No column-value pairs provided in updates object' 
+      });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      const columnValuePairs = [];
+      let processStepsValue = null;
+
+      // Process each update and build column-value pairs
+      for (const [columnName, value] of Object.entries(updates)) {
+        let formattedValue = value;
+
+        // Handle date formatting
+        if (columnName.toLowerCase().includes('date') || columnName.toLowerCase().endsWith('_date')) {
+          // Skip empty/null date fields
+          if (value === null || value === 'null' || value === '' || value === undefined) {
+            continue;
+          }
+
+          // Validate and format date
+          const dateValue = new Date(value);
+          if (isNaN(dateValue.getTime())) {
+            console.warn(`Invalid date format for ${columnName}:`, value);
+            continue;
+          }
+          
+          formattedValue = queries.toPostgresDate(value);
+        }
+        // Handle array values (for process_steps or similar columns)
+        else if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
+          try {
+            if (typeof value === 'string') {
+              // Remove surrounding quotes if present
+              let cleanValue = value.replace(/^["']|["']$/g, '').trim();
+
+              console.log('Original value:', value);
+              console.log('Cleaned value:', cleanValue);
+
+              if (cleanValue.startsWith('[')) {
+                // Parse JSON array
+                formattedValue = JSON.parse(decodeURIComponent(cleanValue));
+              } else {
+                // Parse comma-separated and clean each item
+                formattedValue = cleanValue
+                  .split(',')
+                  .map(item => item.trim().replace(/^["']|["']$/g, '')) 
+                  .filter(item => item.length > 0);
+              }
+
+              console.log('Final formatted value:', formattedValue);
+            } else if (Array.isArray(value)) {
+              formattedValue = value;
+            } else {
+              formattedValue = [value];
+            }
+
+            // Store process_steps for column creation
+            if (columnName === 'process_steps') {
+              processStepsValue = formattedValue;
+            }
+            
+          } catch (parseError) {
+            console.error('Error parsing array value:', parseError);
+            await client.query('ROLLBACK');
+            return res.status(400).json({ 
+              error: `Invalid array format for ${columnName}`,
+              details: parseError.message 
+            });
+          }
+        }
+        // Handle regular fields
+        else {
+          formattedValue = value === null || value === 'null' ? '' : value;
+        }
+
+        // Add to column-value pairs
+        columnValuePairs.push([columnName, formattedValue]);
+      }
+
+      // If no valid column-value pairs after processing
+      if (columnValuePairs.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          error: 'No valid column-value pairs to update after processing' 
+        });
+      }
+
+      // If process_steps exists, create columns for each element
+      if (processStepsValue && Array.isArray(processStepsValue)) {
+        // Validate userSchemaName and userTableName
+        if (!userSchemaName || !userTableName) {
+          console.error('Missing userSchemaName or userTableName for process_steps alteration');
+          await client.query('ROLLBACK');
+          return res.status(400).json({ 
+            error: 'userSchemaName and userTableName are required for process_steps updates' 
+          });
+        }
+
+        // Use schemaName as fallback if userSchemaName is invalid
+        const targetSchema = (userSchemaName && userSchemaName !== 'true' && userSchemaName !== 'false') 
+          ? userSchemaName 
+          : schemaName;
+        
+        const targetTable = userTableName || tableName;
+
+        console.log('Target schema:', targetSchema);
+        console.log('Target table:', targetTable);
+
+        try {
+          // Generate fields for each process step element
+          const fields = [];
+          processStepsValue.forEach((element) => {
+            const sanitizedElement = element.replace(/[^a-zA-Z0-9_]/g, '_');
+            
+            fields.push(
+              { name: `${sanitizedElement}`, type: 'text', required: false, systemField: false },
+              { name: `${sanitizedElement}_balance`, type: 'number', required: false, systemField: false },
+              { name: `${sanitizedElement}_quantity_received`, type: 'number', required: false, systemField: false },
+              { name: `${sanitizedElement}_wastage`, type: 'number', required: false, systemField: false }
+            );
+          });
+
+          // Generate ALTER statements using the helper function
+          const alterStatements = generateAlterTableQuery(fields, targetTable, targetSchema);
+          
+          console.log('Executing ALTER statements for process_steps:', alterStatements);
+          
+          // Execute each ALTER statement, ignoring errors for columns that already exist
+          for (const statement of alterStatements) {
+            try {
+              await client.query(statement);
+            } catch (alterErr) {
+              // Ignore "column already exists" errors (PostgreSQL error code 42701)
+              if (alterErr.code !== '42701') {
+                throw alterErr;
+              }
+              console.log('Column already exists, skipping:', statement);
+            }
+          }
+          
+          console.log('Successfully created columns for process_steps elements');
+          
+        } catch (alterError) {
+          console.error('Error altering table for process_steps:', alterError);
+          // Continue with the update even if alter fails
+        }
+      }
+
+      // Perform the multiple column update
+      const { query, values } = queries.updateMultipleColumns({
+        schemaName,
+        tableName,
+        recordId,
+        columnValuePairs
+      });
+
+      console.log('Update query:', query);
+      console.log('Update values:', values);
+
+      const result = await client.query(query, values);
+
+      // Update API usage if ownerId is provided
+      if (ownerId) {
+        await client.query(userQueries.updateApi, [ownerId]);
+      }
+
+      await client.query('COMMIT');
+
+      // Send webhook notification if wid is provided
+      if (wid) {
+        try {
+          const table = `${schemaName}.${tableName}`;
+          const wResult = await client.query(`SELECT * FROM ${table} WHERE id = $1`, [recordId]);
+          console.log('Webhook data:', wResult.rows);
+          await axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
+        } catch (webhookError) {
+          console.error('Webhook error:', webhookError);
+          // Don't fail the entire operation if webhook fails
+        }
+      }
+
+      res.status(200).json({
+        message: `Multiple columns updated successfully in ${schemaName}.${tableName}`,
+        recordId: recordId,
+        updatedColumns: columnValuePairs.map(pair => pair[0]),
+        data: result.rows[0]
+      });
+
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+  } catch (e) {
+    console.error('Error updating multiple columns:', e);
+    res.status(500).json({
+      error: 'Failed to update columns',
+      details: e.message
+    });
+  }
+};
+
+
 // exports.getAllData = async (req, res) => {
 //   const { schemaName, tableName } = req.body;
 
