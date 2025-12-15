@@ -380,6 +380,7 @@ exports.createDropdownSetup = async (req, res) => {
       product_name,
       mapping,
       columnOrder,
+      us_id,
       webhook_input  // Add this
     } = req.body;
 
@@ -406,8 +407,8 @@ exports.createDropdownSetup = async (req, res) => {
 
     // Create new setup with mapping, column_order, and webhook
     const insertQuery = `
-      INSERT INTO dropdown_setup (owner_id, product_name, mapping, column_order, webhook, created_at, updated_at) 
-      VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
+      INSERT INTO dropdown_setup (owner_id, product_name, mapping, column_order, webhook, created_at, updated_at,us_id) 
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW(),$6) 
       RETURNING *
     `;
     
@@ -419,7 +420,8 @@ exports.createDropdownSetup = async (req, res) => {
       product_name, 
       mappingJson,
       columnOrderJson,
-      webhook_input || null  // Add webhook value
+      webhook_input || null,
+      us_id
     ]);
 
     // Parse the returned data for response
@@ -453,6 +455,7 @@ exports.updateDropdownSetup = async (req, res) => {
       product_name,
       mapping,
       columnOrder,
+      us_id,
       webhook_input  // Add this
     } = req.body;
 

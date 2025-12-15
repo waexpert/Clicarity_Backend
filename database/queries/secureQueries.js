@@ -20,7 +20,7 @@ function getAllRoles(schemaName) {
   return `SELECT * FROM "${schemaName}".roles`;
 }
 
-// Team Member
+// Create Team Member User
 function createTeamMemberUser(schemaName) {
   return `
     INSERT INTO users (
@@ -40,7 +40,8 @@ function createTeamMemberUser(schemaName) {
       $1, $2, $3, $4, $5,
       $6, $7, $8, $9, $10,
       $11, $12
-    );
+    )
+    RETURNING id, email, first_name, last_name;
   `;
 }
 
@@ -66,9 +67,9 @@ function createTeamMemberTable(schemaName) {
 
 function createTeamMember(schemaName){
   return`
-      INSERT INTO ${schemaName}.teamMember (
-      first_name, last_name, email, password, role, phone_number, owner_id, owner_first_name
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+      INSERT INTO ${schemaName}.team_member (
+      first_name, last_name, email, password, role, phone_number, owner_id ,department , manager_name , birthday,us_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 , $9 , $10, $11);
   `;
 }
 

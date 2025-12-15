@@ -1,4 +1,5 @@
 const pool = require("../database/databaseConnection");
+const bcrypt = require('bcrypt');
 
 // Create Schema
 const queries = require("../database/queries/secureQueries");
@@ -854,46 +855,204 @@ res.status(500).json({error:'Failed to retrive Roles'})
  }
 }
 
+// exports.createTeamMember = async(req,res) =>{
+//   const {schemaName,userData,owner} = req.body;
+//   const {first_name,last_name,email,password,phone_number,role,department,manager_name,birthday} = userData; 
+
+//   try{
+//     // Hash the password before storing
+//     const saltRounds = 10;
+//     const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+//     const teamMemberUserValues = [
+//       first_name,
+//       last_name,
+//       email,
+//       hashedPassword,  // Use hashed password instead of plain text
+//       phone_number,
+//       owner.country,
+//       owner.currency,
+//       true,
+//       owner.schemaName,
+//       role,
+//       owner.first_name,
+//       owner.id
+//     ];
+//     const us_id = `TM-${Date.now()}`;
+//     const teamMemberValues = [
+//       first_name,
+//       last_name,
+//       email,
+//       hashedPassword,  // Use hashed password instead of plain text
+//       role,
+//       phone_number,
+//       owner.id,
+//       department,
+//       manager_name,
+//       birthday,
+//       us_id
+//     ];
+    
+//     // creating user in the user table
+//     const result = await pool.query(queries.createTeamMemberUser("public"),teamMemberUserValues);
+    
+//     // creating user in team Member table
+//     await pool.query(queries.createTeamMember(schemaName),teamMemberValues);
+    
+//     res.status(201).json({message:`Team Member created successfully`});
+//   }catch(e){
+//     console.error('Error creating new team Member:', e);
+//     res.status(500).json({error:'Failed to create new team Member'});
+//   }
+// }
+
 exports.createTeamMember = async(req,res) =>{
   const {schemaName,userData,owner} = req.body;
-  const {first_name,last_name,email,password,phone_number,role} = userData; 
-
-  const teamMemberUserValues = [
-    first_name,
-    last_name,
-    email,
-    password,
-    phone_number,
-    owner.country,
-    owner.currency,
-    true,
-    owner.schemaName,
-    role,
-    owner.first_name,
-    owner.id
-  ];
-
-  const teamMemberValues = [
-    first_name,
-    last_name,
-    email,
-    password,
-    role,
-    phone_number,
-    owner.id,
-    owner.first_name
-  ];
-  
+  const {first_name,last_name,email,password,phone_number,role,department,manager_name,birthday} = userData; 
 
   try{
-  // creating user in the user table
-  const result = await pool.query(queries.createTeamMemberUser(schemaName),teamMemberUserValues)
-  // creating user in team Member table
-  await pool.query(queries.createTeamMember,teamMemberValues)
-  res.status(201).json({message:`team Member created sucessfully`})
+    // Hash the password before storing
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    const teamMemberUserValues = [
+      first_name,
+      last_name,
+      email,
+      hashedPassword,
+      phone_number,
+      owner.country,
+      owner.currency,
+      true,
+      owner.schemaName,
+      role,
+      owner.first_name,
+      owner.id
+    ];
+    const us_id = `TM-${Date.now()}`;
+    const teamMemberValues = [
+      first_name,
+      last_name,
+      email,
+      hashedPassword,
+      role,
+      phone_number,
+      owner.id,
+      department,
+      manager_name,
+      birthday,
+      us_id
+    ];
+    
+    // creating user in the user table
+    const result = await pool.query(queries.createTeamMemberUser("public"),teamMemberUserValues);
+    console.log("result",result.rows);
+    
+    // Get the newly created user's ID from the result
+    const newUserId = result.rows[0].id;
+    
+    // creating user in team Member table
+    await pool.query(queries.createTeamMember(schemaName),teamMemberValues);
+    
+    // Copy dropdown_setup from owner to new team member
+    // Get all dropdown_setup rows for the owner - cast JSONB to text for easier handling
+    const getOwnerDropdownSetup = `
+      SELECT 
+        product_name,
+        mapping::text as mapping,
+        column_order::text as column_order,
+        process_steps,
+        filter_form_columns,
+        process_type_mapping::text as process_type_mapping,
+        webhook
+      FROM public.dropdown_setup
+      WHERE owner_id = $1
+    `;
+    
+    const ownerDropdownSetups = await pool.query(getOwnerDropdownSetup, [owner.id]);
+    
+    console.log('Owner dropdown setups found:', ownerDropdownSetups.rows.length);
+    
+    // Insert each dropdown_setup row for the new team member
+    if (ownerDropdownSetups.rows.length > 0) {
+      for (const setup of ownerDropdownSetups.rows) {
+        // Log the setup data for debugging
+        console.log(`Processing setup for product: ${setup.product_name}`);
+        console.log('filter_form_columns type:', typeof setup.filter_form_columns);
+        console.log('filter_form_columns value:', setup.filter_form_columns);
+        
+        const insertDropdownSetup = `
+          INSERT INTO public.dropdown_setup (
+            owner_id,
+            product_name,
+            mapping,
+            column_order,
+            process_steps,
+            filter_form_columns,
+            us_id,
+            process_type_mapping,
+            webhook,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6::jsonb, $7, $8::jsonb, $9, NOW(), NOW())
+        `;
+        
+        // Generate new us_id as: newUserId_product_name
+        const newSetupUsId = `${newUserId}_${setup.product_name}`;
+        
+        // Helper function to safely convert to JSON string
+        const toJsonString = (value) => {
+          if (value === null || value === undefined) {
+            return null;
+          }
+          if (typeof value === 'string') {
+            // Already a string, check if it's valid JSON
+            try {
+              JSON.parse(value);
+              return value;
+            } catch (e) {
+              // Not valid JSON, wrap it
+              return JSON.stringify(value);
+            }
+          }
+          // It's an object or array, stringify it
+          return JSON.stringify(value);
+        };
+        
+        const dropdownValues = [
+          newUserId,                                    // $1: owner_id
+          setup.product_name,                           // $2: product_name
+          setup.mapping,                                // $3: mapping (already text from SELECT)
+          setup.column_order,                           // $4: column_order (already text from SELECT)
+          setup.process_steps,                          // $5: process_steps (array)
+          toJsonString(setup.filter_form_columns),      // $6: filter_form_columns (convert to JSON)
+          newSetupUsId,                                 // $7: us_id
+          setup.process_type_mapping,                   // $8: process_type_mapping (already text from SELECT, can be null)
+          setup.webhook                                 // $9: webhook
+        ];
+        
+        console.log('Inserting with values:', dropdownValues.map((v, i) => `$${i+1}: ${typeof v} - ${v}`));
+        
+        await pool.query(insertDropdownSetup, dropdownValues);
+        console.log(`Successfully copied setup for ${setup.product_name}`);
+      }
+      
+      console.log(`Copied ${ownerDropdownSetups.rows.length} dropdown_setup rows for new team member`);
+    }
+    
+    res.status(201).json({
+      message: `Team Member created successfully`,
+      userId: newUserId,
+      dropdownSetupsCreated: ownerDropdownSetups.rows.length
+    });
   }catch(e){
-    console.error('Error creating new team Member')
-    res.status(500).json({error:'Failed to create new team Member'})
+    console.error('Error creating new team Member:', e);
+    console.error('Error stack:', e.stack);
+    res.status(500).json({
+      error:'Failed to create new team Member', 
+      details: e.message,
+      code: e.code
+    });
   }
 }
 
