@@ -1,0 +1,84 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TEAM MEMBER TABLE
+// ============================================
+model team_member {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  phone_number  String?
+  empid         String?
+  department    String?
+  manager_name  String?
+  birthday      DateTime? @db.Date
+  us_id         String    @unique
+  email         String?
+  first_name    String?
+  last_name     String?
+  role          String?   @default("member")
+  password      String?
+  owner_id      String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  
+  @@map("team_member")
+  @@index([email])
+  @@index([phone_number])
+  @@index([role])
+}
+
+// ============================================
+// VENDOR TABLE
+// ============================================
+model vendor {
+  id            String    @id @default(uuid()) @db.Uuid
+  us_id         String    @unique
+  name          String
+  process_name  String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  
+  @@map("vendor")
+  @@index([process_name])
+}
+
+// ============================================
+// CONTACT TABLE
+// ============================================
+model contact {
+  id            Int       @id @default(autoincrement())
+  name          String
+  email         String?
+  phone         String?
+  source        String?
+  details       String?   @db.Text
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+  
+  @@map("contact")
+  @@index([email])
+  @@index([phone])
+  @@index([source])
+}
+
+// ============================================
+// REMINDERS TABLE (From your code)
+// ============================================
+model reminders {
+  reminder_id   Int       @id @default(autoincrement())
+  sender_name   String?
+  sender_phone  String?   @unique
+  us_id         String?   @unique
+  created_at    DateTime  @default(now())
+  
+  @@map("reminders")
+}

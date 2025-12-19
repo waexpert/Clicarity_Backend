@@ -230,7 +230,7 @@ exports.createBulkRecord = async (req, res) => {
 // This is a final version of the update record with process steps column alteration and also send the webhook notification
 exports.updateRecord = async (req, res) => {
   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid, userTableName, userSchemaName } = req.query;
-  const vendorTable = `${schemaName}.vendors`; 
+  const vendorTable = `${schemaName}.vendor`; 
 
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
     return res.status(400).json({ error: 'Invalid schema name' });

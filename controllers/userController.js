@@ -2,7 +2,7 @@ const pool = require("../database/databaseConnection");
 const queries = require("../database/queries/userQueries")
 const { sendJWTToken } = require("../utils/jwtServices")
 const jwt = require("jsonwebtoken");
-
+const tenantService = require("./services/tenantService");
 
 const bcrypt = require('bcrypt');
 const { sendEmail } = require("../utils/emailService");
@@ -194,26 +194,15 @@ exports.registerUser = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Create the user's schema
-    await createUserSchema(schemaName);
-
-    // Create the team member table with user data
+    // Create the user's schema with all required tables using TenantService
     const userData = {
       first_name,
       last_name,
       phone_number,
       email
     };
-    await createTeamMemberTable(schemaName, userData);
-    await pool.query(`
-    CREATE TABLE ${schemaName}.reminders (
-    reminder_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    sender_name TEXT,
-    sender_phone TEXT UNIQUE,
-    us_id TEXT UNIQUE
-  )
-`);
 
+    await tenantService.createTenantSchema(schemaName, userData);
 
     sendEmail(email);
     sendJWTToken(user, 201, res);
@@ -282,7 +271,7 @@ exports.loginUser = async (req, res, next) => {
     }
 
     paymentReminderSetup();
-    sendEmail(email);
+    // sendEmail(email);
     sendJWTToken(user, 200, res);
   } catch (error) {
     console.error("Login error:", error);

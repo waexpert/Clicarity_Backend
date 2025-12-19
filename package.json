@@ -3,7 +3,19 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prisma:generate": "npx prisma generate",
+    "prisma:studio": "npx prisma studio",
+    "prisma:format": "npx prisma format",
+    "migration:create": "npx prisma migrate dev --name",
+    "migration:status": "node scripts/migration-status.js",
+    "migration:deploy": "node scripts/migrate-tenants.js",
+    "migration:deploy-all": "node scripts/migrate-tenants.js",
+    "migration:backfill": "node scripts/backfill-schemas.js",
+    "migration:rollback": "node scripts/rollback-migration.js",
+    "migration:mark-applied": "node scripts/mark-migration-applied.js",
+    "migration:verify": "node scripts/verify-schemas.js",
+    "migration:demo": "node scripts/test-migration-flow.js"
   },
   "keywords": [],
   "author": "",
@@ -37,5 +49,9 @@
     "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
     "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0"
   }
 }

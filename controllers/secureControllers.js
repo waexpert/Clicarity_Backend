@@ -969,81 +969,81 @@ exports.createTeamMember = async(req,res) =>{
       WHERE owner_id = $1
     `;
     
-    const ownerDropdownSetups = await pool.query(getOwnerDropdownSetup, [owner.id]);
+    // const ownerDropdownSetups = await pool.query(getOwnerDropdownSetup, [owner.id]);
     
-    console.log('Owner dropdown setups found:', ownerDropdownSetups.rows.length);
+    // console.log('Owner dropdown setups found:', ownerDropdownSetups.rows.length);
     
     // Insert each dropdown_setup row for the new team member
-    if (ownerDropdownSetups.rows.length > 0) {
-      for (const setup of ownerDropdownSetups.rows) {
-        // Log the setup data for debugging
-        console.log(`Processing setup for product: ${setup.product_name}`);
-        console.log('filter_form_columns type:', typeof setup.filter_form_columns);
-        console.log('filter_form_columns value:', setup.filter_form_columns);
+    // if (ownerDropdownSetups.rows.length > 0) {
+    //   for (const setup of ownerDropdownSetups.rows) {
+    //     // Log the setup data for debugging
+    //     console.log(`Processing setup for product: ${setup.product_name}`);
+    //     console.log('filter_form_columns type:', typeof setup.filter_form_columns);
+    //     console.log('filter_form_columns value:', setup.filter_form_columns);
         
-        const insertDropdownSetup = `
-          INSERT INTO public.dropdown_setup (
-            owner_id,
-            product_name,
-            mapping,
-            column_order,
-            process_steps,
-            filter_form_columns,
-            us_id,
-            process_type_mapping,
-            webhook,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6::jsonb, $7, $8::jsonb, $9, NOW(), NOW())
-        `;
+    //     const insertDropdownSetup = `
+    //       INSERT INTO public.dropdown_setup (
+    //         owner_id,
+    //         product_name,
+    //         mapping,
+    //         column_order,
+    //         process_steps,
+    //         filter_form_columns,
+    //         us_id,
+    //         process_type_mapping,
+    //         webhook,
+    //         created_at,
+    //         updated_at
+    //       ) VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6::jsonb, $7, $8::jsonb, $9, NOW(), NOW())
+    //     `;
         
-        // Generate new us_id as: newUserId_product_name
-        const newSetupUsId = `${newUserId}_${setup.product_name}`;
+    //     // Generate new us_id as: newUserId_product_name
+    //     const newSetupUsId = `${newUserId}_${setup.product_name}`;
         
-        // Helper function to safely convert to JSON string
-        const toJsonString = (value) => {
-          if (value === null || value === undefined) {
-            return null;
-          }
-          if (typeof value === 'string') {
-            // Already a string, check if it's valid JSON
-            try {
-              JSON.parse(value);
-              return value;
-            } catch (e) {
-              // Not valid JSON, wrap it
-              return JSON.stringify(value);
-            }
-          }
-          // It's an object or array, stringify it
-          return JSON.stringify(value);
-        };
+    //     // Helper function to safely convert to JSON string
+    //     const toJsonString = (value) => {
+    //       if (value === null || value === undefined) {
+    //         return null;
+    //       }
+    //       if (typeof value === 'string') {
+    //         // Already a string, check if it's valid JSON
+    //         try {
+    //           JSON.parse(value);
+    //           return value;
+    //         } catch (e) {
+    //           // Not valid JSON, wrap it
+    //           return JSON.stringify(value);
+    //         }
+    //       }
+    //       // It's an object or array, stringify it
+    //       return JSON.stringify(value);
+    //     };
         
-        const dropdownValues = [
-          newUserId,                                    // $1: owner_id
-          setup.product_name,                           // $2: product_name
-          setup.mapping,                                // $3: mapping (already text from SELECT)
-          setup.column_order,                           // $4: column_order (already text from SELECT)
-          setup.process_steps,                          // $5: process_steps (array)
-          toJsonString(setup.filter_form_columns),      // $6: filter_form_columns (convert to JSON)
-          newSetupUsId,                                 // $7: us_id
-          setup.process_type_mapping,                   // $8: process_type_mapping (already text from SELECT, can be null)
-          setup.webhook                                 // $9: webhook
-        ];
+    //     const dropdownValues = [
+    //       newUserId,                                    // $1: owner_id
+    //       setup.product_name,                           // $2: product_name
+    //       setup.mapping,                                // $3: mapping (already text from SELECT)
+    //       setup.column_order,                           // $4: column_order (already text from SELECT)
+    //       setup.process_steps,                          // $5: process_steps (array)
+    //       toJsonString(setup.filter_form_columns),      // $6: filter_form_columns (convert to JSON)
+    //       newSetupUsId,                                 // $7: us_id
+    //       setup.process_type_mapping,                   // $8: process_type_mapping (already text from SELECT, can be null)
+    //       setup.webhook                                 // $9: webhook
+    //     ];
         
-        console.log('Inserting with values:', dropdownValues.map((v, i) => `$${i+1}: ${typeof v} - ${v}`));
+    //     console.log('Inserting with values:', dropdownValues.map((v, i) => `$${i+1}: ${typeof v} - ${v}`));
         
-        await pool.query(insertDropdownSetup, dropdownValues);
-        console.log(`Successfully copied setup for ${setup.product_name}`);
-      }
+    //     await pool.query(insertDropdownSetup, dropdownValues);
+    //     console.log(`Successfully copied setup for ${setup.product_name}`);
+    //   }
       
-      console.log(`Copied ${ownerDropdownSetups.rows.length} dropdown_setup rows for new team member`);
-    }
+    //   console.log(`Copied ${ownerDropdownSetups.rows.length} dropdown_setup rows for new team member`);
+    // }
     
     res.status(201).json({
       message: `Team Member created successfully`,
       userId: newUserId,
-      dropdownSetupsCreated: ownerDropdownSetups.rows.length
+      // dropdownSetupsCreated: ownerDropdownSetups.rows.length
     });
   }catch(e){
     console.error('Error creating new team Member:', e);
