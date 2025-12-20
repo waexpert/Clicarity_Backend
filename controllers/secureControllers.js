@@ -649,6 +649,8 @@ function generateDummyInsertQuery(fields, tableName, schemaName = 'public') {
 
   const insertColumns = [];
   const insertValues = [];
+  const paramValues = [];
+  let paramIndex = 1;
 
   normalizedFields.forEach((field) => {
     insertColumns.push(`"${field.name}"`);
@@ -657,43 +659,40 @@ function generateDummyInsertQuery(fields, tableName, schemaName = 'public') {
     if (field.name === 'id') {
       insertValues.push('uuid_generate_v4()');
     } else if (field.name === 'us_id') {
-      insertValues.push("'dummy_us_id'");
+      insertValues.push(`$${paramIndex++}`);
+      paramValues.push('dummy_us_id');
     } else {
       switch (field.type.toLowerCase()) {
         case 'number':
-          insertValues.push('0');
+          insertValues.push(`$${paramIndex++}`);
+          paramValues.push(0);
           break;
         case 'text':
-          insertValues.push(`'dummy_${field.name}'`);
+          insertValues.push(`$${paramIndex++}`);
+          paramValues.push(`dummy_${field.name}`);
           break;
         case 'date':
+          // Use CURRENT_DATE as raw SQL, not a parameter
           insertValues.push('CURRENT_DATE');
           break;
         case 'boolean':
-          insertValues.push('false');
+          insertValues.push(`$${paramIndex++}`);
+          paramValues.push(false);
           break;
         case 'uuid':
           insertValues.push('uuid_generate_v4()');
           break;
         default:
-          insertValues.push(`'dummy_${field.name}'`);
+          insertValues.push(`$${paramIndex++}`);
+          paramValues.push(`dummy_${field.name}`);
       }
     }
-
-    // ONLY add dummy values for *_date and *_comment columns for NON-SYSTEM fields
-    // if (!field.systemField) {
-    //   insertColumns.push(`"${field.name}_date"`);
-    //   insertValues.push('CURRENT_DATE');
-      
-    //   insertColumns.push(`"${field.name}_comment"`);
-    //   insertValues.push(`'dummy_comment_for_${field.name}'`);
-    // }
   });
 
   const fullTableName = `"${schemaName}"."${tableName}"`;
   const query = `INSERT INTO ${fullTableName} (${insertColumns.join(', ')}) VALUES (${insertValues.join(', ')})`;
 
-  return query;
+  return { query, values: paramValues };
 }
 
 exports.createTable = async(req, res) => {
@@ -704,9 +703,12 @@ exports.createTable = async(req, res) => {
     const createTableQuery = generateCreateTableQuery(fields, table_name, true, schema_name);
     await pool.query(createTableQuery);
     
-    // Insert dummy entry
-    const dummyInsertQuery = generateDummyInsertQuery(fields, table_name, schema_name);
-    await pool.query(dummyInsertQuery);
+    // Insert dummy entry with proper parameterization
+    const { query: dummyInsertQuery, values: dummyValues } = generateDummyInsertQuery(fields, table_name, schema_name);
+    console.log('Executing insert query:', dummyInsertQuery);
+    console.log('With values:', dummyValues);
+    
+    await pool.query(dummyInsertQuery, dummyValues);
     
     res.status(200).json({ 
       message: `Table created successfully in schema ${schema_name} with name ${table_name} and dummy entry inserted` 
