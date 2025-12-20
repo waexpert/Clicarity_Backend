@@ -243,9 +243,12 @@ exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
 
     // Add default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
-      // Skip empty string defaults for date fields (invalid in PostgreSQL)
-      if (field.type.toLowerCase() === 'date' && field.defaultValue === '') {
-        // Don't add DEFAULT clause for empty date strings
+      const fieldType = field.type.toLowerCase();
+      const isEmptyString = field.defaultValue === '';
+
+      // Skip empty string defaults for date, number, and boolean fields (invalid in PostgreSQL)
+      if ((fieldType === 'date' || fieldType === 'number' || fieldType === 'boolean') && isEmptyString) {
+        // Don't add DEFAULT clause for empty strings on typed fields
       } else if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
@@ -605,9 +608,12 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
     // Add default value BEFORE NULL/NOT NULL constraint
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
-      // Skip empty string defaults for date fields (invalid in PostgreSQL)
-      if (field.type.toLowerCase() === 'date' && field.defaultValue === '') {
-        // Don't add DEFAULT clause for empty date strings
+      const fieldType = field.type.toLowerCase();
+      const isEmptyString = field.defaultValue === '';
+
+      // Skip empty string defaults for date, number, and boolean fields (invalid in PostgreSQL)
+      if ((fieldType === 'date' || fieldType === 'number' || fieldType === 'boolean') && isEmptyString) {
+        // Don't add DEFAULT clause for empty strings on typed fields
       } else if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
@@ -773,9 +779,12 @@ function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName =
 
     // Add default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
-      // Skip empty string defaults for date fields (invalid in PostgreSQL)
-      if (field.type.toLowerCase() === 'date' && field.defaultValue === '') {
-        // Don't add DEFAULT clause for empty date strings
+      const fieldType = field.type.toLowerCase();
+      const isEmptyString = field.defaultValue === '';
+
+      // Skip empty string defaults for date, number, and boolean fields (invalid in PostgreSQL)
+      if ((fieldType === 'date' || fieldType === 'number' || fieldType === 'boolean') && isEmptyString) {
+        // Don't add DEFAULT clause for empty strings on typed fields
       } else if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
