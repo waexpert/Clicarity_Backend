@@ -21,8 +21,8 @@ class TenantService {
       await client.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
       console.log(`  ✓ Schema created`);
 
-      // 2. Enable UUID extension for this schema
-      await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA "${schemaName}"`);
+      // 2. Enable UUID extension globally (if not already enabled)
+      await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
       console.log(`  ✓ UUID extension enabled`);
 
       // 3. Ensure migration tracking table exists

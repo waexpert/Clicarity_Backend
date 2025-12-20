@@ -129,8 +129,8 @@ class MigrationService {
     adaptSQLForSchema(sql, schemaName) {
         let adaptedSQL = sql;
 
-        // Set search_path at the beginning to target the correct schema
-        adaptedSQL = `SET search_path TO "${schemaName}";\n\n${adaptedSQL}`;
+        // Set search_path to include both tenant schema and public (for extensions like uuid-ossp)
+        adaptedSQL = `SET search_path TO "${schemaName}", public;\n\n${adaptedSQL}`;
 
         // Replace explicit public schema references
         adaptedSQL = adaptedSQL.replace(/CREATE TABLE IF NOT EXISTS "public"\."(\w+)"/gi,
