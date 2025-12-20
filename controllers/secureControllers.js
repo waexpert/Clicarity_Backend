@@ -243,7 +243,10 @@ exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
 
     // Add default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
-      if (typeof field.defaultValue === 'string') {
+      // Skip empty string defaults for date fields (invalid in PostgreSQL)
+      if (field.type.toLowerCase() === 'date' && field.defaultValue === '') {
+        // Don't add DEFAULT clause for empty date strings
+      } else if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
         columnDef += ` DEFAULT ${field.defaultValue}`;
@@ -602,7 +605,10 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
     // Add default value BEFORE NULL/NOT NULL constraint
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
-      if (typeof field.defaultValue === 'string') {
+      // Skip empty string defaults for date fields (invalid in PostgreSQL)
+      if (field.type.toLowerCase() === 'date' && field.defaultValue === '') {
+        // Don't add DEFAULT clause for empty date strings
+      } else if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
         columnDef += ` DEFAULT ${field.defaultValue}`;
@@ -767,7 +773,10 @@ function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName =
 
     // Add default value
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
-      if (typeof field.defaultValue === 'string') {
+      // Skip empty string defaults for date fields (invalid in PostgreSQL)
+      if (field.type.toLowerCase() === 'date' && field.defaultValue === '') {
+        // Don't add DEFAULT clause for empty date strings
+      } else if (typeof field.defaultValue === 'string') {
         columnDef += ` DEFAULT '${field.defaultValue}'`;
       } else {
         columnDef += ` DEFAULT ${field.defaultValue}`;
