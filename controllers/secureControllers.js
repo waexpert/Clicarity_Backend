@@ -262,7 +262,8 @@ exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
     // Add associated date and comment columns
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" DATE`);
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_comment" TEXT`);
-    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_times_called" TEXT`);
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_times_called" INT`);
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_vendor" TEXT`);
   });
 
   return alterStatements;
@@ -803,9 +804,10 @@ function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName =
 
     // Add *_date and *_comment columns for non-system fields
     if (!field.systemField) {
-      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_date" DATE`);
-      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_comment" TEXT`);
-      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN "${field.name}_times_called" INT`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" DATE`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_comment" TEXT`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_times_called" INT`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_vendor" TEXT`);
     }
   });
 

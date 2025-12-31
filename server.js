@@ -15,6 +15,7 @@ const { createPdfs } = require("./index2.js");
 const pool = require("./database/databaseConnection.js");
 const { nanoid } = require('nanoid');
 const webhookRoutes = require('./routes/webhookRoutes.js');
+const viewRoutes = require('./routes/viewRoutes.js');
 
 
 
@@ -48,6 +49,7 @@ app.use('/data', dataRoutes);
 app.use('/secure', userPermissionRoutes);
 app.use('/mfa',mfaRoutes);
 app.use('/webhooks',webhookRoutes);
+app.use('/views', viewRoutes);
 app.get('/getVendors',async(req,res)=>{
     const data = await pool.query(`SELECT * FROM public.processvendors;`)
     res.send(data.rows);
