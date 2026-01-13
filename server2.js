@@ -154,6 +154,9 @@ const dataRoutes = require('./routes/dataRoutes.js')
 const webhookRoutes = require('./routes/webhookRoutes.js')
 const serviceRoutes = require('./routes/serviceRoutes.js')
 const referenceRoutes = require('./routes/referenceRoutes.js')
+const rolesRoutes = require('./routes/rolesRoutes.js')
+const permissionRoutes = require('./routes/permissionRoutes.js');
+const additionalRoutes = require('./routes/additionalRoutes.js')
 
 // Import payment reminder service
 const { 
@@ -222,6 +225,9 @@ app.use('/reminder',reminderRoutes);
 app.use('/birthday',birthdayRoutes);
 app.use('/payment-reminders', paymentReminderRoutes);
 app.use('/reference',referenceRoutes);
+app.use('/permissions', permissionRoutes);
+app.use('/roles',rolesRoutes)
+app.use('/additional', additionalRoutes)
 
 
 app.get("/generatePdf",async (req,res)=>{
