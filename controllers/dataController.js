@@ -121,112 +121,6 @@ exports.createBulkRecord = async (req, res) => {
   }
 };
 
-// exports.updateRecord = async (req, res) => {
-//   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid } = req.query;
-//   const vendorTable = schemaName.vendors;
-//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
-//     return res.status(400).json({ error: 'Invalid schema name' });
-//   }
-
-//   try {
-//     // Format date values if column name contains 'date'
-//     let formattedValue = value;
-//     if (columnName.toLowerCase().includes('date')) {
-//       formattedValue = queries.toPostgresDate(value);
-//     }
-
-//     await pool.query(queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue));
-//     await pool.query(userQueries.updateApi, [ownerId]);
-
-//     if (vname) {
-//       const vendorResult = await pool.query(`SELECT * FROM $1 WHERE name = $2`, vendorTable, vname);
-//       axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows);
-//     }
-
-//     res.status(200).json({ message: `Record updated to Table ${schemaName}.${tableName} successfully.` });
-//   } catch (err) {
-//     console.error('Error Updating the Record:', err);
-//     res.status(500).json({
-//       error: 'Failed to Update Record',
-//       details: err.message
-//     });
-//   }
-// };
-
-
-
-// With Notification send to the webhook URL
-
-// exports.updateRecord = async (req, res) => {
-//   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid, userTableName,userSchemaName } = req.query;
-//   const vendorTable = `${schemaName}.vendors`; 
-
-
-//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
-//     return res.status(400).json({ error: 'Invalid schema name' });
-//   }
-
-//   try {
-//     let formattedValue = value;
-
-//     // Handle date formatting
-//     if (columnName.toLowerCase().includes('date')) {
-//       formattedValue = queries.toPostgresDate(value);
-//     }
-
-//     // Handle array values (for process_steps or similar columns)
-//     if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
-//       try {
-//         if (typeof value === 'string') {
-//           // Remove surrounding quotes if present
-//           let cleanValue = value.replace(/^["']|["']$/g, '').trim();
-
-//           console.log('Original value:', value);
-//           console.log('Cleaned value:', cleanValue);
-
-//           if (cleanValue.startsWith('[')) {
-//             // Parse JSON array
-//             formattedValue = JSON.parse(decodeURIComponent(cleanValue));
-//           } else {
-//             // Parse comma-separated and clean each item
-//             formattedValue = cleanValue
-//               .split(',')
-//               .map(item => item.trim().replace(/^["']|["']$/g, '')) 
-//               .filter(item => item.length > 0);
-//           }
-
-//           console.log('Final formatted value:', formattedValue);
-//         }
-//       } catch (parseError) {
-//         console.error('Error parsing array value:', parseError);
-//         return res.status(400).json({ error: 'Invalid array format' });
-//       }
-//     }
-    
-//     const query = queries.updateRecord(schemaName, tableName, recordId, columnName, formattedValue);
-//     console.log(query)
-//     await pool.query(query.text, query.values);
-//     await pool.query(userQueries.updateApi, [ownerId]);
-
-//     if (vname) {
-//       const vendorResult = await pool.query(`SELECT * FROM ${vendorTable} WHERE name = $1`, [vname]);
-//       await axios.post(`https://webhooks.wa.expert/webhook/${wid}`, vendorResult.rows); // FIX: Added await
-//     }
-
-//     res.status(200).json({
-//       message: `Record updated to Table ${schemaName}.${tableName} successfully.`,
-//       updatedValue: formattedValue
-//     });
-//   } catch (err) {
-//     console.error('Error Updating the Record:', err);
-//     res.status(500).json({
-//       error: 'Failed to Update Record',
-//       details: err.message
-//     });
-//   }
-// };
-
-
 // This is a final version of the update record with process steps column alteration and also send the webhook notification
 exports.updateRecord = async (req, res) => {
   const { schemaName, tableName, recordId, columnName, value, ownerId, vname, wid, userTableName, userSchemaName } = req.query;
@@ -603,6 +497,7 @@ exports.updateMultipleColumnsBody = async (req, res) => {
 };
 
 
+// Modified getAllData Route to get the data along with the not null constrain
 // exports.getAllData = async (req, res) => {
 //   const { schemaName, tableName } = req.body;
 
@@ -610,25 +505,52 @@ exports.updateMultipleColumnsBody = async (req, res) => {
 //     return res.status(400).json({ error: 'Invalid schema name' });
 //   }
 
+//   if (!tableName || /[^a-zA-Z0-9_]/.test(tableName)) {
+//     return res.status(400).json({ error: 'Invalid table name' });
+//   }
+
 //   try {
-//     const query = `SELECT * FROM ${schemaName}.${tableName};`;
-//     const result = await pool.query(query);
-//     // return result.rows;
-//     res.status(200).json(result.rows);
+//     // Get the actual data
+//     const dataQuery = `SELECT * FROM "${schemaName}"."${tableName}";`;
+//     const dataResult = await pool.query(dataQuery);
+
+//     // Get column metadata with NOT NULL constraints
+//     const metadataQuery = `
+//       SELECT 
+//         column_name,
+//         data_type,
+//         is_nullable,
+//         CASE 
+//           WHEN is_nullable = 'NO' THEN true 
+//           ELSE false 
+//         END as required,
+//         column_default,
+//         ordinal_position
+//       FROM information_schema.columns 
+//       WHERE table_schema = $1 AND table_name = $2
+//       ORDER BY ordinal_position;
+//     `;
+
+//     const metadataResult = await pool.query(metadataQuery, [schemaName, tableName]);
+
+//     res.status(200).json({
+//       success: true,
+//       data: dataResult.rows,
+//       columns: metadataResult.rows
+//     });
 
 //   } catch (err) {
-//     console.error('Error Retriving the Records:', err);
+//     console.error('Error Retrieving the Records:', err);
 //     res.status(500).json({
 //       error: 'Failed to Get Record',
 //       details: err.message
 //     });
 //   }
-// }
+// };
 
-
-// Modified getAllData Route to get the data along with the not null constrain
 exports.getAllData = async (req, res) => {
   const { schemaName, tableName } = req.body;
+  const teamMemberAccess = req.teamMemberAccess; // From middleware
 
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
     return res.status(400).json({ error: 'Invalid schema name' });
@@ -639,11 +561,79 @@ exports.getAllData = async (req, res) => {
   }
 
   try {
-    // Get the actual data
-    const dataQuery = `SELECT * FROM "${schemaName}"."${tableName}";`;
-    const dataResult = await pool.query(dataQuery);
+    let dataQuery;
+    let queryParams = [];
+    let allowedColumnsList = ['*']; // Default: all columns
 
-    // Get column metadata with NOT NULL constraints
+    // ============================================
+    // ROLE-BASED ACCESS CONTROL
+    // ============================================
+    if (teamMemberAccess && teamMemberAccess[tableName]) {
+      const access = teamMemberAccess[tableName];
+      
+      console.log('🔒 Applying role restrictions for table:', tableName);
+      console.log('🔒 Access config:', access);
+
+      // COLUMN-LEVEL SECURITY: Select only allowed columns
+      if (access.columns && access.columns.length > 0) {
+        allowedColumnsList = access.columns;
+        const allowedColumns = access.columns
+          .map(col => `"${col}"`) // Quote column names for safety
+          .join(', ');
+        
+        console.log('🔒 Allowed columns:', allowedColumns);
+        
+        dataQuery = `SELECT ${allowedColumns} FROM "${schemaName}"."${tableName}"`;
+      } else {
+        // No column restriction, but still apply row filters
+        dataQuery = `SELECT * FROM "${schemaName}"."${tableName}"`;
+      }
+
+      // ROW-LEVEL SECURITY: Build WHERE clause from conditions
+      if (access.conditions && access.conditions.length > 0) {
+        const whereConditions = [];
+        
+        access.conditions.forEach((condition, index) => {
+          const paramIndex = queryParams.length + 1;
+          
+          // Build condition based on operator
+          const columnName = `"${condition.column}"`;
+          const operator = condition.operator;
+          
+          whereConditions.push(`${columnName} ${operator} $${paramIndex}`);
+          queryParams.push(condition.value);
+          
+          // Add logical operator (AND/OR) between conditions
+          if (condition.logicalOperator && index < access.conditions.length - 1) {
+            whereConditions.push(condition.logicalOperator);
+          }
+        });
+
+        const whereClause = ` WHERE ${whereConditions.join(' ')}`;
+        dataQuery += whereClause;
+        
+        console.log('🔒 Row filters applied:', whereClause);
+        console.log('🔒 Filter values:', queryParams);
+      }
+
+      dataQuery += ';';
+      
+      console.log('🔒 RESTRICTED QUERY:', dataQuery);
+    } else {
+      // ============================================
+      // FULL ACCESS (No restrictions)
+      // ============================================
+      dataQuery = `SELECT * FROM "${schemaName}"."${tableName}";`;
+      console.log('✅ FULL ACCESS QUERY:', dataQuery);
+    }
+
+    // Execute the data query (with or without restrictions)
+    const dataResult = await pool.query(dataQuery, queryParams);
+
+    // ============================================
+    // GET COLUMN METADATA
+    // ============================================
+    // Get metadata for ALL columns (for admin view)
     const metadataQuery = `
       SELECT 
         column_name,
@@ -662,10 +652,35 @@ exports.getAllData = async (req, res) => {
 
     const metadataResult = await pool.query(metadataQuery, [schemaName, tableName]);
 
+    // ============================================
+    // FILTER METADATA FOR RESTRICTED USERS
+    // ============================================
+    let filteredMetadata = metadataResult.rows;
+    
+    if (teamMemberAccess && teamMemberAccess[tableName]) {
+      const access = teamMemberAccess[tableName];
+      
+      // Only return metadata for columns user has access to
+      if (access.columns && access.columns.length > 0) {
+        filteredMetadata = metadataResult.rows.filter(col => 
+          access.columns.includes(col.column_name)
+        );
+        
+        console.log('🔒 Filtered metadata to allowed columns only');
+      }
+    }
+
+    // ============================================
+    // SEND RESPONSE
+    // ============================================
     res.status(200).json({
       success: true,
       data: dataResult.rows,
-      columns: metadataResult.rows
+      columns: filteredMetadata,
+      // Additional info for frontend
+      restricted: !!(teamMemberAccess && teamMemberAccess[tableName]),
+      allowedColumns: allowedColumnsList,
+      recordCount: dataResult.rows.length
     });
 
   } catch (err) {
