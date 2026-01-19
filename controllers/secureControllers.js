@@ -951,7 +951,15 @@ exports.createTeamMember = async(req,res) =>{
       owner.first_name,
       owner.id
     ];
-    const us_id = `TM-${Date.now()}`;
+
+    
+    // creating user in the user table
+    const result = await pool.query(queries.createTeamMemberUser("public"),teamMemberUserValues);
+    console.log("result",result.rows);
+    
+    // Get the newly created user's ID from the result
+    const newUserId = result.rows[0].id;
+    let us_id = newUserId;
     const teamMemberValues = [
       first_name,
       last_name,
@@ -965,13 +973,6 @@ exports.createTeamMember = async(req,res) =>{
       birthday,
       us_id
     ];
-    
-    // creating user in the user table
-    const result = await pool.query(queries.createTeamMemberUser("public"),teamMemberUserValues);
-    console.log("result",result.rows);
-    
-    // Get the newly created user's ID from the result
-    const newUserId = result.rows[0].id;
     
     // creating user in team Member table
     await pool.query(queries.createTeamMember(schemaName),teamMemberValues);

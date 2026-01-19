@@ -13,6 +13,7 @@ exports.createRole = async (req, res) => {
       tableName,
       roleConfig,
       createdBy
+      
     } = req.body;
 
     // Validate required fields

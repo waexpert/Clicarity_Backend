@@ -42,6 +42,8 @@ exports.getRecordByTarget = async (req, res) => {
   }
 };
 
+
+
 exports.getRecordByTargetAll = async (req, res) => {
   try {
     const { targetColumn, targetValue, schemaName, tableName } = req.body;
