@@ -42,6 +42,27 @@ exports.getRecordByTarget = async (req, res) => {
   }
 };
 
+exports.getRecordByCondition = async (req, res) => {
+  try {
+    const { targetColumn, targetWithCondition, schemaName, tableName } = req.body;
+    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetWithCondition}`;
+    const result = await pool.query(query);
+
+    // If no record found → return false
+    if (result.rows.length === 0) {
+      return res.status(200).json(false);
+    }
+
+    // If record found → return the record
+    return res.status(200).json(result.rows);
+
+  } catch (error) {
+    console.error('Error fetching record by target:', error.message);
+    // If any error → also return false instead of crashing
+    return res.status(200).json(false);
+  }
+};
+
 
 
 exports.getRecordByTargetAll = async (req, res) => {
