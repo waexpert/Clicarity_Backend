@@ -21,23 +21,90 @@ exports.getRecordById = async (req, res) => {
   }
 };
 
+// With out Team Member Auth
+// exports.getRecordByTarget = async (req, res) => {
+//   try {
+//     const { targetColumn, targetValue, schemaName, tableName } = req.body;
+//     const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1`;
+//     const result = await pool.query(query, [targetValue]);
+
+//     // If no record found → return false
+//     if (result.rows.length === 0) {
+//       return res.status(200).json(false);
+//     }
+
+//     // If record found → return the record
+//     return res.status(200).json(result.rows[0]);
+
+//   } catch (error) {
+//     console.error('Error fetching record by target:', error.message);
+//     // If any error → also return false instead of crashing
+//     return res.status(200).json(false);
+//   }
+// };
+
 exports.getRecordByTarget = async (req, res) => {
   try {
     const { targetColumn, targetValue, schemaName, tableName } = req.body;
-    const query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${targetColumn} = $1`;
-    const result = await pool.query(query, [targetValue]);
+
+    // Get access rules from middleware
+    const accessRules = req.teamMemberAccess;
+    const tableAccess = accessRules?.[tableName];
+
+    console.log('🔍 [GET_RECORD] Access rules:', tableAccess);
+
+    // Determine which columns to select
+    let selectColumns = '*';
+    
+    if (tableAccess?.columns && tableAccess.columns.length > 0) {
+      selectColumns = tableAccess.columns.map(col => `"${col}"`).join(', ');
+    }
+
+    // Build base query
+    let query = `SELECT ${selectColumns} FROM "${schemaName}"."${tableName}" WHERE "${targetColumn}" = $1`;
+    const queryParams = [targetValue];
+    let paramCounter = 2;
+
+    // ✅ ADD ACCESS RESTRICTIONS
+    if (tableAccess?.conditions && tableAccess.conditions.length > 0) {
+      query += ' AND (';
+      
+      tableAccess.conditions.forEach((condition, index) => {
+        const { column, operator, value, logicalOperator } = condition;
+        
+        // Add logical operator BEFORE this condition (except for first)
+        if (index > 0) {
+          const previousCondition = tableAccess.conditions[index - 1];
+          const connector = previousCondition.logicalOperator || 'AND';
+          query += ` ${connector} `;
+        }
+        
+        // Add the condition
+        query += `"${column}" ${operator} $${paramCounter}`;
+        queryParams.push(value);
+        paramCounter++;
+      });
+      
+      query += ')';
+    }
+
+    console.log('🔍 [GET_RECORD] Final query:', query);
+    console.log('🔍 [GET_RECORD] Query params:', queryParams);
+
+    const result = await pool.query(query, queryParams);
 
     // If no record found → return false
     if (result.rows.length === 0) {
+      console.log('❌ [GET_RECORD] No record found or access denied');
       return res.status(200).json(false);
     }
 
     // If record found → return the record
+    console.log('✅ [GET_RECORD] Record found:', result.rows[0]);
     return res.status(200).json(result.rows[0]);
 
   } catch (error) {
-    console.error('Error fetching record by target:', error.message);
-    // If any error → also return false instead of crashing
+    console.error('❌ [GET_RECORD] Error:', error.message);
     return res.status(200).json(false);
   }
 };

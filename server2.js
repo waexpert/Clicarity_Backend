@@ -195,11 +195,36 @@ app.get('/getVendors',async(req,res)=>{
 })
 
 // CORS configuration
+// const corsOptions = {
+//     origin: ['http://localhost:5173','https://click.wa.expert','http://192.168.1.8:5173','http://192.168.1.6:5173','http://172.24.224.1:5173'],
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
+//     credentials: true,
+// };
+// app.use(cors(corsOptions));
+
 const corsOptions = {
-    origin: ['http://localhost:5173','https://click.wa.expert'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+            'http://localhost:5173',
+            'https://click.wa.expert'
+        ];
+        
+        // Allow any local network IP in development
+        const isLocalNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|172\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin);
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || isLocalNetwork) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     credentials: true,
 };
+
 app.use(cors(corsOptions));
 
 // Rate limiting

@@ -5,7 +5,10 @@ const { authenticate } = require("../middlewares/auth.js");
 const router = express.Router();
 
 router.post("/getRecordById",getRecordById);
-router.post("/getRecordByTarget",getRecordByTarget);
+router.post("/getRecordByTarget",
+        authenticate,
+    getTeamMemberAccess,
+    getRecordByTarget);
 router.post("/getRecordByCondition",getRecordByCondition);
 router.post("/getRecordByTargetAll",
     authenticate,
