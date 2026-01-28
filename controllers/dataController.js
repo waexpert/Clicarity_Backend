@@ -153,18 +153,58 @@ exports.getRecordByTargetAll = async (req, res) => {
   }
 };
 
+// exports.createRecord = async (req, res) => {
+//   const { schemaName, tableName, record } = req.body;
+
+//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+//     return res.status(400).json({ error: 'Invalid schema name' });
+//   }
+
+//   try {
+//     // First ensure the unique constraint exists
+//     await queries.ensureUniqueConstraint(pool, schemaName, tableName, 'us_id');
+
+//     // Then create the record with date formatting
+//     const { query, values } = queries.createRecord(schemaName, tableName, record);
+//     const result = await pool.query(query, values);
+
+//     res.status(200).json({
+//       message: `Record Inserted to Table ${tableName} successfully.`,
+//       data: result.rows[0]
+//     });
+//   } catch (err) {
+//     console.error('Error Inserting the Record:', err);
+//     res.status(500).json({
+//       error: 'Failed to Insert Record',
+//       details: err.message
+//     });
+//   }
+// };
+
+
 exports.createRecord = async (req, res) => {
+  // ADD THIS DEBUG LOG FIRST
+  console.log('======= CONTROLLER RECEIVED =======');
+  console.log('req.body:', req.body);
+  console.log('schemaName:', req.body?.schemaName);
+  console.log('tableName:', req.body?.tableName);
+  console.log('record:', req.body?.record);
+  console.log('===================================');
+
   const { schemaName, tableName, record } = req.body;
 
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
     return res.status(400).json({ error: 'Invalid schema name' });
   }
 
-  try {
-    // First ensure the unique constraint exists
-    await queries.ensureUniqueConstraint(pool, schemaName, tableName, 'us_id');
+  // ADD THIS CHECK
+  if (!record || typeof record !== 'object') {
+    console.error('Invalid record received:', record);
+    return res.status(400).json({ error: 'Invalid record data' });
+  }
 
-    // Then create the record with date formatting
+  try {
+    await queries.ensureUniqueConstraint(pool, schemaName, tableName, 'us_id');
     const { query, values } = queries.createRecord(schemaName, tableName, record);
     const result = await pool.query(query, values);
 
@@ -180,6 +220,7 @@ exports.createRecord = async (req, res) => {
     });
   }
 };
+
 
 exports.createBulkRecord = async (req, res) => {
   const { schemaName, tableName, records } = req.body;

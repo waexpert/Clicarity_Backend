@@ -105,6 +105,40 @@ function isValidDate(date) {
 //   return { query, values };
 // }
 
+// Working Create Record
+// function createRecord(schemaName, tableName, record) {
+//   const processedRecord = {};
+  
+//   for (const [key, value] of Object.entries(record)) {
+//     // Check if the column name contains "date"
+//     if (key.toLowerCase().includes("date")) {
+//       processedRecord[key] = toPostgresDate(value);
+//     } else if (typeof value === "object" && value !== null) {
+//       // Replace any object/array with "-"
+//       processedRecord[key] = "-";
+//     } else {
+//       processedRecord[key] = value;
+//     }
+//   }
+  
+//   const columns = Object.keys(processedRecord); 
+//   const values = Object.values(processedRecord); 
+//   const placeholders = columns.map((_, idx) => `$${idx + 1}`);
+  
+//   // Create SET clause for UPDATE part of upsert
+//   const updateSetClause = columns
+//     .map(col => `"${col}" = EXCLUDED."${col}"`)
+//     .join(', ');
+
+//   const query = `
+//     INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
+//     VALUES (${placeholders.join(', ')})
+//     ON CONFLICT (us_id) DO UPDATE SET ${updateSetClause}
+//     RETURNING *`;
+
+//   return { query, values };
+// }
+
 function createRecord(schemaName, tableName, record) {
   const processedRecord = {};
   
@@ -130,13 +164,27 @@ function createRecord(schemaName, tableName, record) {
     .join(', ');
 
   const query = `
-    INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
+    INSERT INTO "${schemaName}"."${tableName}" (${columns.map(col => `"${col}"`).join(', ')})
     VALUES (${placeholders.join(', ')})
     ON CONFLICT (us_id) DO UPDATE SET ${updateSetClause}
     RETURNING *`;
 
+  // ADD THESE DEBUG LOGS
+  console.log('======= CREATE RECORD DEBUG =======');
+  console.log('Schema:', schemaName);
+  console.log('Table:', tableName);
+  console.log('Original Record:', record);
+  console.log('Processed Record:', processedRecord);
+  console.log('Columns:', columns);
+  console.log('Values:', values);
+  console.log('Generated Query:', query);
+  console.log('===================================');
+
   return { query, values };
-}
+} 
+
+
+
 
 function createBulkInsertQuery(schemaName, tableName, records) {
   if (!records || !records.length) {
