@@ -133,11 +133,12 @@ exports.handleSearch = async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
+    const excludedTables = ["vendor", "reminders", "team_member", "contact"];
     const unionQueries = [];
     const queryParams = [];
     let paramCounter = 1;
-
-    for (const tableName of tables) {
+    console.log("table Names"+tables);
+    for (const tableName of tables.filter(table => !excludedTables.includes(table))) {
       const tableAccess = accessRules?.[tableName];
       let whereClause = `us_id ILIKE $${paramCounter}`;
       queryParams.push(`${query}%`);
