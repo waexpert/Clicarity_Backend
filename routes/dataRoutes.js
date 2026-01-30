@@ -31,3 +31,5 @@ router.get("/getTableColumns",getTableColumns);
 router.get("/deleteRecord",deleteRecord);
 
 module.exports = router;
+
+ 
