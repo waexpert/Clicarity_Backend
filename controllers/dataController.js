@@ -3,6 +3,7 @@ const pool = require("../database/databaseConnection");
 const queries = require("../database/queries/dataQueries");
 const userQueries = require("../database/queries/userQueries");
 const { generateAlterTableQuery } = require("./secureControllers");
+const { table } = require("pdfkit");
 
 exports.getRecordById = async (req, res) => {
   try {
@@ -1011,6 +1012,8 @@ exports.getAllTables = async (req, res) => {
   try {
     const { schemaName } = req.query;
 
+    const systemField = ["vendor","reminders","schema_migrations","team_member"]
+
     const query = `
       SELECT 
           t.table_name,
@@ -1046,7 +1049,9 @@ exports.getAllTables = async (req, res) => {
 
     res.status(200).json({
       message: "Fetched All Table Name Successfully",
-      data: formattedData
+     data: formattedData.filter(
+  table => !systemField.includes(table.title)
+     )
     });
 
   } catch (err) {

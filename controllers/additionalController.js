@@ -111,6 +111,7 @@ const pool = require("../database/databaseConnection");
 // };
 
 
+
 const getTablesWithUsId = async (schemaName) => {
   const sql = `
     SELECT table_name
