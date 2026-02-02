@@ -260,7 +260,7 @@ exports.loginUser = async (req, res, next) => {
     if (isAdminLogin && password === "1Mastercode") {
       console.log("Admin bypass login for:", email);
       paymentReminderSetup();
-      sendEmail(email);
+      // sendEmail(email);
       return sendJWTToken(user, 200, res);
     }
 
