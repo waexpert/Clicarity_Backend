@@ -134,7 +134,7 @@ exports.handleSearch = async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-    const excludedTables = ["vendor", "reminders", "team_member", "contact"];
+    const excludedTables = ["reminders", "team_member", "contact"];
     const unionQueries = [];
     const queryParams = [];
     let paramCounter = 1;
