@@ -1012,7 +1012,7 @@ exports.getAllTables = async (req, res) => {
   try {
     const { schemaName } = req.query;
 
-    const systemField = ["vendor","reminders","schema_migrations","team_member"]
+    const systemField = ["reminders","schema_migrations","team_member"]
 
     const query = `
       SELECT 
