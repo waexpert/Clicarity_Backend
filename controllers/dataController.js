@@ -826,7 +826,7 @@ exports.updateMultipleColumnsBody = async (req, res) => {
 // };
 
 exports.getAllData = async (req, res) => {
-  const { schemaName, tableName, page = 1, limit = 20 } = req.body;
+  const { schemaName, tableName, page = 1, limit = 50 } = req.body;
   const teamMemberAccess = req.teamMemberAccess; // From middleware
 
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
