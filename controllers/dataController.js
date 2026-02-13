@@ -4,6 +4,7 @@ const queries = require("../database/queries/dataQueries");
 const userQueries = require("../database/queries/userQueries");
 const { generateAlterTableQuery } = require("./secureControllers");
 const { table } = require("pdfkit");
+const CryptoJS = require('crypto-js');
 
 exports.getRecordById = async (req, res) => {
   try {
@@ -680,8 +681,152 @@ exports.updateMultipleColumnsBody = async (req, res) => {
 //   }
 // };
 
+// exports.getAllData = async (req, res) => {
+//   const { schemaName, tableName } = req.body;
+//   const teamMemberAccess = req.teamMemberAccess; // From middleware
+
+//   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
+//     return res.status(400).json({ error: 'Invalid schema name' });
+//   }
+
+//   if (!tableName || /[^a-zA-Z0-9_]/.test(tableName)) {
+//     return res.status(400).json({ error: 'Invalid table name' });
+//   }
+
+//   try {
+//     let dataQuery;
+//     let queryParams = [];
+//     let allowedColumnsList = ['*']; // Default: all columns
+
+//     // ============================================
+//     // ROLE-BASED ACCESS CONTROL
+//     // ============================================
+//     if (teamMemberAccess && teamMemberAccess[tableName]) {
+//       const access = teamMemberAccess[tableName];
+      
+//       console.log('🔒 Applying role restrictions for table:', tableName);
+//       console.log('🔒 Access config:', access);
+
+//       // COLUMN-LEVEL SECURITY: Select only allowed columns
+//       if (access.columns && access.columns.length > 0) {
+//         allowedColumnsList = access.columns;
+//         const allowedColumns = access.columns
+//           .map(col => `"${col}"`) // Quote column names for safety
+//           .join(', ');
+        
+//         console.log('🔒 Allowed columns:', allowedColumns);
+        
+//         dataQuery = `SELECT ${allowedColumns} FROM "${schemaName}"."${tableName}"`;
+//       } else {
+//         // No column restriction, but still apply row filters
+//         dataQuery = `SELECT * FROM "${schemaName}"."${tableName}"`;
+//       }
+
+//       // ROW-LEVEL SECURITY: Build WHERE clause from conditions
+//       if (access.conditions && access.conditions.length > 0) {
+//         const whereConditions = [];
+        
+//         access.conditions.forEach((condition, index) => {
+//           const paramIndex = queryParams.length + 1;
+          
+//           // Build condition based on operator
+//           const columnName = `"${condition.column}"`;
+//           const operator = condition.operator;
+          
+//           whereConditions.push(`${columnName} ${operator} $${paramIndex}`);
+//           queryParams.push(condition.value);
+          
+//           // Add logical operator (AND/OR) between conditions
+//           if (condition.logicalOperator && index < access.conditions.length - 1) {
+//             whereConditions.push(condition.logicalOperator);
+//           }
+//         });
+
+//         const whereClause = ` WHERE ${whereConditions.join(' ')}`;
+//         dataQuery += whereClause;
+        
+//         console.log('🔒 Row filters applied:', whereClause);
+//         console.log('🔒 Filter values:', queryParams);
+//       }
+
+//       dataQuery += ';';
+      
+//       console.log('🔒 RESTRICTED QUERY:', dataQuery);
+//     } else {
+//       // ============================================
+//       // FULL ACCESS (No restrictions)
+//       // ============================================
+//       dataQuery = `SELECT * FROM "${schemaName}"."${tableName}";`;
+//       console.log('✅ FULL ACCESS QUERY:', dataQuery);
+//     }
+
+//     // Execute the data query (with or without restrictions)
+//     const dataResult = await pool.query(dataQuery, queryParams);
+
+//     // ============================================
+//     // GET COLUMN METADATA
+//     // ============================================
+//     // Get metadata for ALL columns (for admin view)
+//     const metadataQuery = `
+//       SELECT 
+//         column_name,
+//         data_type,
+//         is_nullable,
+//         CASE 
+//           WHEN is_nullable = 'NO' THEN true 
+//           ELSE false 
+//         END as required,
+//         column_default,
+//         ordinal_position
+//       FROM information_schema.columns 
+//       WHERE table_schema = $1 AND table_name = $2
+//       ORDER BY ordinal_position;
+//     `;
+
+//     const metadataResult = await pool.query(metadataQuery, [schemaName, tableName]);
+
+//     // ============================================
+//     // FILTER METADATA FOR RESTRICTED USERS
+//     // ============================================
+//     let filteredMetadata = metadataResult.rows;
+    
+//     if (teamMemberAccess && teamMemberAccess[tableName]) {
+//       const access = teamMemberAccess[tableName];
+      
+//       // Only return metadata for columns user has access to
+//       if (access.columns && access.columns.length > 0) {
+//         filteredMetadata = metadataResult.rows.filter(col => 
+//           access.columns.includes(col.column_name)
+//         );
+        
+//         console.log('🔒 Filtered metadata to allowed columns only');
+//       }
+//     }
+
+//     // ============================================
+//     // SEND RESPONSE
+//     // ============================================
+//     res.status(200).json({
+//       success: true,
+//       data: dataResult.rows,
+//       columns: filteredMetadata,
+//       // Additional info for frontend
+//       restricted: !!(teamMemberAccess && teamMemberAccess[tableName]),
+//       allowedColumns: allowedColumnsList,
+//       recordCount: dataResult.rows.length
+//     });
+
+//   } catch (err) {
+//     console.error('Error Retrieving the Records:', err);
+//     res.status(500).json({
+//       error: 'Failed to Get Record',
+//       details: err.message
+//     });
+//   }
+// };
+
 exports.getAllData = async (req, res) => {
-  const { schemaName, tableName } = req.body;
+  const { schemaName, tableName, page = 1, limit = 20 } = req.body;
   const teamMemberAccess = req.teamMemberAccess; // From middleware
 
   if (!schemaName || /[^a-zA-Z0-9_]/.test(schemaName)) {
@@ -692,9 +837,25 @@ exports.getAllData = async (req, res) => {
     return res.status(400).json({ error: 'Invalid table name' });
   }
 
+  // Validate pagination parameters
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  
+  if (isNaN(pageNum) || pageNum < 1) {
+    return res.status(400).json({ error: 'Invalid page number' });
+  }
+  
+  if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
+    return res.status(400).json({ error: 'Invalid limit (must be between 1 and 1000)' });
+  }
+
+  const offset = (pageNum - 1) * limitNum;
+
   try {
     let dataQuery;
+    let countQuery;
     let queryParams = [];
+    let countParams = [];
     let allowedColumnsList = ['*']; // Default: all columns
 
     // ============================================
@@ -721,6 +882,9 @@ exports.getAllData = async (req, res) => {
         dataQuery = `SELECT * FROM "${schemaName}"."${tableName}"`;
       }
 
+      // Count query for total records
+      countQuery = `SELECT COUNT(*) FROM "${schemaName}"."${tableName}"`;
+
       // ROW-LEVEL SECURITY: Build WHERE clause from conditions
       if (access.conditions && access.conditions.length > 0) {
         const whereConditions = [];
@@ -734,6 +898,7 @@ exports.getAllData = async (req, res) => {
           
           whereConditions.push(`${columnName} ${operator} $${paramIndex}`);
           queryParams.push(condition.value);
+          countParams.push(condition.value); // Same params for count query
           
           // Add logical operator (AND/OR) between conditions
           if (condition.logicalOperator && index < access.conditions.length - 1) {
@@ -743,24 +908,40 @@ exports.getAllData = async (req, res) => {
 
         const whereClause = ` WHERE ${whereConditions.join(' ')}`;
         dataQuery += whereClause;
+        countQuery += whereClause;
         
         console.log('🔒 Row filters applied:', whereClause);
         console.log('🔒 Filter values:', queryParams);
       }
 
-      dataQuery += ';';
+      // Add pagination
+      const paginationParamStart = queryParams.length + 1;
+      dataQuery += ` LIMIT $${paginationParamStart} OFFSET $${paginationParamStart + 1};`;
+      queryParams.push(limitNum, offset);
+
+      countQuery += ';';
       
       console.log('🔒 RESTRICTED QUERY:', dataQuery);
     } else {
       // ============================================
       // FULL ACCESS (No restrictions)
       // ============================================
-      dataQuery = `SELECT * FROM "${schemaName}"."${tableName}";`;
+      dataQuery = `SELECT * FROM "${schemaName}"."${tableName}" LIMIT $1 OFFSET $2;`;
+      queryParams = [limitNum, offset];
+      
+      countQuery = `SELECT COUNT(*) FROM "${schemaName}"."${tableName}";`;
+      
       console.log('✅ FULL ACCESS QUERY:', dataQuery);
     }
 
-    // Execute the data query (with or without restrictions)
-    const dataResult = await pool.query(dataQuery, queryParams);
+    // Execute both queries in parallel for better performance
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(dataQuery, queryParams),
+      pool.query(countQuery, countParams)
+    ]);
+
+    const totalRecords = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalRecords / limitNum);
 
     // ============================================
     // GET COLUMN METADATA
@@ -809,6 +990,15 @@ exports.getAllData = async (req, res) => {
       success: true,
       data: dataResult.rows,
       columns: filteredMetadata,
+      // Pagination info
+      pagination: {
+        currentPage: pageNum,
+        pageSize: limitNum,
+        totalRecords: totalRecords,
+        totalPages: totalPages,
+        hasNextPage: pageNum < totalPages,
+        hasPreviousPage: pageNum > 1
+      },
       // Additional info for frontend
       restricted: !!(teamMemberAccess && teamMemberAccess[tableName]),
       allowedColumns: allowedColumnsList,
@@ -897,6 +1087,89 @@ exports.updateRecordWithTimeStamp = async (req, res) => {
 
 // url?schemaName=wa_expert&tableName=tasks&recordId=0d70b71c-4c2a-4d2d-82b5-dac08a72ecde&ownerId=73421c55-3152-455a-99e8-e09fbb00d9b8&col1=notes&val1=testing&col2
 
+const SECRET_KEY = process.env.CRYPTO_SECRET_KEY;
+// Working UpdateMultipleColumns without url approch
+// exports.updateMultipleColumns = async (req, res) => {
+//   const {
+//     schemaName,
+//     tableName,
+//     recordId, vname, wid,
+//     ...rest
+//   } = req.query;
+
+//   try {
+//     if (!schemaName || !tableName || !recordId) {
+//       return res.status(400).json({ error: 'Missing schemaName, tableName, or recordId' });
+//     }
+
+//     // Extract colN and valN pairs
+//     const columnValuePairs = [];
+//     const keys = Object.keys(rest);
+//     const colValPairs = keys.filter(k => k.startsWith('col')).length;
+
+//     for (let i = 1; i <= colValPairs; i++) {
+//       const colKey = `col${i}`;
+//       const valKey = `val${i}`;
+
+//       if (rest[colKey] && rest[valKey] !== undefined) {
+//         columnValuePairs.push([rest[colKey], rest[valKey]]);
+//       }
+//     }
+
+//     if (columnValuePairs.length === 0) {
+//       return res.status(400).json({ error: 'No column-value pairs provided' });
+//     }
+
+//     const { query, values } = queries.updateMultipleColumns({
+//       schemaName,
+//       tableName,
+//       recordId,
+//       columnValuePairs
+//     });
+
+//     const result = await pool.query(query, values);
+
+//     if (wid) {
+//       const table = `${schemaName}.${tableName}`;
+//       const wResult = await pool.query(`SELECT * FROM ${table} WHERE id = $1`, [recordId]);
+//       console.log(wResult.rows);
+//       axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
+//     }
+
+//     res.status(200).json({
+//       message: 'Update successful',
+//       data: result.rows[0]
+//     });
+
+//   } catch (e) {
+//     console.error(e);
+//     res.status(500).json({
+//       error: 'Failed to update columns',
+//       details: e.message
+//     });
+//   }
+// };
+
+// Convert URL-safe Base64 back to standard Base64 before decrypting
+const fromUrlSafe = (urlSafe) => {
+  let base64 = urlSafe.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = 4 - (base64.length % 4);
+  if (padding !== 4) base64 += '='.repeat(padding);
+  return base64;
+};
+
+const decryptWebhookUrl = (encryptedText) => {
+  const standardBase64 = fromUrlSafe(encryptedText);
+  const bytes = CryptoJS.AES.decrypt(standardBase64, SECRET_KEY);
+  const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+  if (!decrypted) {
+    throw new Error('Decryption failed — key mismatch or corrupted data');
+  }
+
+  return decrypted;
+};
+
 exports.updateMultipleColumns = async (req, res) => {
   const {
     schemaName,
@@ -938,10 +1211,17 @@ exports.updateMultipleColumns = async (req, res) => {
     const result = await pool.query(query, values);
 
     if (wid) {
+      // Decrypt wid to get the actual webhook URL
+      const webhookUrl = decryptWebhookUrl(wid);
+      console.log('Decrypted webhook URL:', webhookUrl);
+
       const table = `${schemaName}.${tableName}`;
       const wResult = await pool.query(`SELECT * FROM ${table} WHERE id = $1`, [recordId]);
       console.log(wResult.rows);
-      axios.post(`https://webhooks.wa.expert/webhook/${wid}`, wResult.rows);
+      console.log(webhookUrl);
+
+      // Now post directly to the decrypted URL instead of constructing it
+      axios.post(webhookUrl, wResult.rows);
     }
 
     res.status(200).json({
@@ -957,7 +1237,6 @@ exports.updateMultipleColumns = async (req, res) => {
     });
   }
 };
-
 
 
 exports.incrementByOne = async (req, res) => {
