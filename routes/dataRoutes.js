@@ -4,6 +4,15 @@ const { getTeamMemberAccess } = require("../middlewares/teamMemberAuth.js");
 const { authenticate } = require("../middlewares/auth.js");
 const router = express.Router();
 
+router.get("/updateMultiple",updateMultipleColumns);
+router.get("/incrementbyone",incrementByOne);
+router.get("/getAllPayments",getAllPayments);
+router.get("/getAllTables",getAllTables);
+router.get("/getTableColumns",getTableColumns);
+router.get("/deleteRecord",deleteRecord);
+router.get("/updateRecord",updateRecord);
+
+
 router.post("/getRecordById",getRecordById);
 router.post("/getRecordByTarget",
         authenticate,
@@ -15,7 +24,6 @@ router.post("/getRecordByTargetAll",
     getTeamMemberAccess,
     getRecordByTargetAll);
 router.post("/createRecord", createRecord);
-router.get("/updateRecord",updateRecord);
 router.post("/updateMultiple",updateMultipleColumnsBody);
 router.post("/createBulkRecord",createBulkRecord);
 router.post("/getAllData",
@@ -23,12 +31,7 @@ router.post("/getAllData",
     getTeamMemberAccess,
     getAllData);
 router.post("/updateComment",updateRecordWithTimeStamp);
-router.get("/updateMultiple",updateMultipleColumns);
-router.get("/incrementbyone",incrementByOne);
-router.get("/getAllPayments",getAllPayments);
-router.get("/getAllTables",getAllTables);
-router.get("/getTableColumns",getTableColumns);
-router.get("/deleteRecord",deleteRecord);
+
 
 module.exports = router;
 

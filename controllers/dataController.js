@@ -224,6 +224,7 @@ exports.createRecord = async (req, res) => {
 };
 
 
+
 exports.createBulkRecord = async (req, res) => {
   const { schemaName, tableName, records } = req.body;
 
@@ -322,7 +323,7 @@ exports.updateRecord = async (req, res) => {
             
             // Generate fields for each process step element
             const fields = [];
-            formattedValue.forEach((element) => {
+            formattedValue.filter((element)=>!element.toLowerCase().includes("form_")).forEach((element) => {
               const sanitizedElement = element.replace(/[^a-zA-Z0-9_]/g, '_');
               
               fields.push(
