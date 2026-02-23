@@ -1,4 +1,22 @@
-const { createRecord, updateRecord, createBulkRecord, getAllData, updateRecordWithTimeStamp, updateMultipleColumns, incrementByOne, getAllPayments, getAllTables, getTableColumns, deleteRecord, getRecordById, getRecordByTarget, getRecordByTargetAll, updateRecordBody, updateMultipleColumnsBody, getRecordByCondition } = require("../controllers/dataController.js");
+const { createRecord,
+     updateRecord, 
+     createBulkRecord, 
+     getAllData, 
+     updateRecordWithTimeStamp, 
+     updateMultipleColumns, 
+     incrementByOne, 
+     getAllPayments, 
+     getAllTables, 
+     getTableColumns, 
+     deleteRecord, 
+     getRecordById, 
+     getRecordByTarget, 
+     getRecordByTargetAll, 
+     updateRecordBody, 
+     updateMultipleColumnsBody, 
+     getRecordByCondition,
+     searchFromTable,
+      } = require("../controllers/dataController.js");
 const express = require("express");
 const { getTeamMemberAccess } = require("../middlewares/teamMemberAuth.js");
 const { authenticate } = require("../middlewares/auth.js");
@@ -31,6 +49,7 @@ router.post("/getAllData",
     getTeamMemberAccess,
     getAllData);
 router.post("/updateComment",updateRecordWithTimeStamp);
+router.post("/search-table",searchFromTable)
 
 
 module.exports = router;

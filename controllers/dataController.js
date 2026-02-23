@@ -1471,7 +1471,6 @@ const updateWastageByUsId = async (schemaName, tableName, us_id) => {
       FROM ${fullTableName}
       WHERE pa_id = $1
     `;
-
     const sumResult = await pool.query(sumQuery, [us_id]);
     const totalWastage = sumResult.rows[0].total_wastage;
 
@@ -1482,7 +1481,6 @@ const updateWastageByUsId = async (schemaName, tableName, us_id) => {
       WHERE us_id = $2
       RETURNING *
     `;
-
     const updateResult = await pool.query(updateQuery, [totalWastage, us_id]);
 
     return {
@@ -1494,5 +1492,41 @@ const updateWastageByUsId = async (schemaName, tableName, us_id) => {
   } catch (error) {
     console.error('Error updating wastage:', error);
     throw error;
+  }
+};
+
+
+exports.searchFromTable = async (req, res) => {
+  try {
+    const { schemaName, tableName, keyword } = req.body;
+
+    // ✅ Validate schema & table name (VERY IMPORTANT)
+    if (!/^[a-zA-Z0-9_]+$/.test(schemaName) || !/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      return res.status(400).json({ error: "Invalid schema or table name" });
+    }
+
+    const query = `
+      SELECT *
+      FROM ${schemaName}.${tableName}
+      WHERE ${tableName}::text ILIKE $1
+    `;
+
+    const values = [`%${keyword}%`];
+
+    const result = await pool.query(query, values);
+
+    res.status(200).json({
+      message: "Search successful",
+      count: result.rowCount,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Search failed",
+      message: error.message
+    });
   }
 };
