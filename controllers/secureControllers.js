@@ -231,6 +231,9 @@ exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
       case 'date':
         columnDef += ' DATE';
         break;
+      case 'timestamp':
+        columnDef += ' TIMESTAMPTZ';
+        break;
       case 'boolean':
         columnDef += ' BOOLEAN';
         break;
@@ -260,7 +263,7 @@ exports.generateAlterTableQuery=(newFields, tableName, schemaName = 'public')=>{
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS ${columnDef}`);
     
     // Add associated date and comment columns
-    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" DATE`);
+    alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" TIMESTAMPTZ`);
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_comment" TEXT`);
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_times_called" INT`);
     alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_vendor" TEXT`);
@@ -597,6 +600,9 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
       case 'date':
         columnDef += ' DATE';
         break;
+      case 'timestamp':
+        columnDef += ' TIMESTAMPTZ';
+        break;
       case 'boolean':
         columnDef += ' BOOLEAN';
         break;
@@ -633,7 +639,7 @@ function generateCreateTableQuery(fields, tableName, useUUID = true, schemaName 
 
     // Add *_date and *_comment columns for non-system fields
     if (!field.systemField) {
-      columns.push(`"${field.name}_date" DATE`);
+      columns.push(`"${field.name}_date" TIMESTAMPTZ`);
       columns.push(`"${field.name}_comment" TEXT`);
       columns.push(`"${field.name}_times_called" INT`);
     }
@@ -758,6 +764,9 @@ function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName =
       case 'date':
         columnDef += ' DATE';
         break;
+      case 'timestamp':
+        columnDef += ' TIMESTAMPTZ';
+        break;
       case 'boolean':
         columnDef += ' BOOLEAN';
         break;
@@ -804,7 +813,7 @@ function generateAlterTableQuery(fields, tableName, useUUID = true, schemaName =
 
     // Add *_date and *_comment columns for non-system fields
     if (!field.systemField) {
-      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" DATE`);
+      alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_date" TIMESTAMPTZ`);
       alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_comment" TEXT`);
       alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_times_called" INT`);
       alterStatements.push(`ALTER TABLE ${fullTableName} ADD COLUMN IF NOT EXISTS "${field.name}_vendor" TEXT`);

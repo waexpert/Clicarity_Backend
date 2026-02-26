@@ -126,7 +126,7 @@ const getTablesWithUsId = async (schemaName) => {
 exports.handleSearch = async (req, res) => {
   const { schemaName, query } = req.body;
   const accessRules = req.teamMemberAccess;
-
+  
   try {
     const tables = await getTablesWithUsId(schemaName);
 
