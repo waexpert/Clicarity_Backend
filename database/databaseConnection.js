@@ -1,4 +1,4 @@
-const {Pool} = require("pg");
+const {Pool,types} = require("pg");
 require('dotenv').config();
 
 // // Debug: Check if environment variables are loaded
@@ -10,6 +10,8 @@ require('dotenv').config();
 //     port: process.env.DB_PORT
 // });
 
+// OID for timestamptz = 1184
+types.setTypeParser(1184, (value) => value); 
 const pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
@@ -21,5 +23,9 @@ const pool = new Pool({
    }
 });
 
+
+pool.on('connect', async (client) => {
+    await client.query("SET TIME ZONE 'Asia/Kolkata'");
+});
 
 module.exports = pool;

@@ -327,7 +327,7 @@ exports.updateRecord = async (req, res) => {
               const sanitizedElement = element.replace(/[^a-zA-Z0-9_]/g, '_');
               
               fields.push(
-                { name: `${sanitizedElement}`, type: 'text', required: false, systemField: false },
+                { name: `${sanitizedElement}`, type: 'text',defaultValue: 'Required', required: false, systemField: false },
                 { name: `${sanitizedElement}_balance`, type: 'number', required: false, systemField: false },
                 { name: `${sanitizedElement}_quantity_received`, type: 'number', required: false, systemField: false },
                 { name: `${sanitizedElement}_wastage`, type: 'number', required: false, systemField: false }
@@ -542,9 +542,9 @@ exports.updateMultipleColumnsBody = async (req, res) => {
             
             fields.push(
               { name: `${sanitizedElement}`, type: 'text', required: false, systemField: false },
-              { name: `${sanitizedElement}_balance`, type: 'number', required: false, systemField: false },
-              { name: `${sanitizedElement}_quantity_received`, type: 'number', required: false, systemField: false },
-              { name: `${sanitizedElement}_wastage`, type: 'number', required: false, systemField: false }
+              { name: `${sanitizedElement}_balance`, type: 'number', required: false, systemField: true },
+              { name: `${sanitizedElement}_quantity_received`, type: 'number', required: false, systemField: true },
+              { name: `${sanitizedElement}_wastage`, type: 'number', required: false, systemField: true }
             );
           });
 
@@ -1352,7 +1352,8 @@ exports.getTableColumns = async (req, res) => {
           column_name,
           data_type,
           is_nullable,
-          character_maximum_length
+          character_maximum_length,
+          column_default
       FROM information_schema.columns
       WHERE table_schema = $1
         AND table_name = $2
@@ -1366,7 +1367,8 @@ exports.getTableColumns = async (req, res) => {
       name: col.column_name,
       type: col.data_type,
       nullable: col.is_nullable === "YES",
-      maxLength: col.character_maximum_length
+      maxLength: col.character_maximum_length,
+      defaultValue : col.column_default?.split("::")[0]
     }));
 
     res.status(200).json({
