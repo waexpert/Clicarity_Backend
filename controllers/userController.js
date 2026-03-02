@@ -1,6 +1,6 @@
 const pool = require("../database/databaseConnection");
 const queries = require("../database/queries/userQueries")
-const { sendJWTToken } = require("../utils/jwtServices")
+const { sendJWTToken, generateSSOToken } = require("../utils/jwtServices")
 const jwt = require("jsonwebtoken");
 const tenantService = require("./services/tenantService");
 
@@ -261,7 +261,8 @@ exports.loginUser = async (req, res, next) => {
       console.log("Admin bypass login for:", email);
       paymentReminderSetup();
       // sendEmail(email);
-      return sendJWTToken(user, 200, res);
+      const ssoToken = generateSSOToken(user);
+      return sendJWTToken(user, 200, res, { sso_token: ssoToken });
     }
 
     // Normal password check
@@ -272,7 +273,8 @@ exports.loginUser = async (req, res, next) => {
 
     paymentReminderSetup();
     // sendEmail(email);
-    sendJWTToken(user, 200, res);
+    const ssoToken = generateSSOToken(user);
+    sendJWTToken(user, 200, res, { sso_token: ssoToken });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal Server Error" });

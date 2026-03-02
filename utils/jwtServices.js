@@ -20,7 +20,15 @@
 
 const jwt = require("jsonwebtoken");
 
-exports.sendJWTToken = (user, statusCode, res) => {
+exports.generateSSOToken = (user) => {
+  const payload = {
+    email: user.email,
+    name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+  };
+  return jwt.sign(payload, process.env.SSO_SECRET, { expiresIn: "2m" });
+};
+
+exports.sendJWTToken = (user, statusCode, res, extras = {}) => {
   const payload = { id: user.id, email: user.email };
 
   const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {
@@ -49,6 +57,7 @@ exports.sendJWTToken = (user, statusCode, res) => {
   res.status(statusCode).json({
     success: true,
     user: user,
+    ...extras,
   });
 };
 
