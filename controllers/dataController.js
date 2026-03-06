@@ -452,7 +452,7 @@ exports.updateMultipleColumnsBody = async (req, res) => {
             continue;
           }
           
-          formattedValue = queries.toPostgresDate(value);
+          formattedValue = value;
         }
         // Handle array values (for process_steps or similar columns)
         else if (columnName === 'process_steps' || columnName.endsWith('_steps') || columnName.endsWith('_array')) {
