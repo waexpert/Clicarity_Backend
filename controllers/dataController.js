@@ -846,7 +846,7 @@ exports.getAllData = async (req, res) => {
     return res.status(400).json({ error: 'Invalid page number' });
   }
   
-  if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
+  if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000000) {
     return res.status(400).json({ error: 'Invalid limit (must be between 1 and 1000)' });
   }
 
