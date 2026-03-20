@@ -312,11 +312,19 @@ function updateMultipleColumns({ schemaName, tableName, recordId, columnValuePai
   const values = [];
 
   columnValuePairs.forEach(([col, val], index) => {
-    setClauses.push(`"${col}" = $${index + 1}`);
+    const paramIndex = index + 1;
+
+    if (col.toLowerCase().includes('vendor')) {
+      // Concatenate on the DB side: existing value + ',' + new value
+      setClauses.push(`"${col}" = "${col}" || ',' || $${paramIndex}`);
+    } else {
+      // Plain replacement
+      setClauses.push(`"${col}" = $${paramIndex}`);
+    }
+
     values.push(val);
   });
 
-  // Add recordId to WHERE clause
   const recordIdIndex = values.length + 1;
   values.push(recordId);
 
